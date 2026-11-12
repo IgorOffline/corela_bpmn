@@ -1,0 +1,57 @@
+// corela_board.bosonoga
+//
+// The board and its two regions.
+
+const board_radius is 4_i32
+
+// The cells with q and r from -4 to 4, which hold the board,
+// as cell_fn numbers them.
+const board_side is 9_i32
+const board_cells is 81_i32
+
+// A cell holds no_node, start_node, or an arrow as 1 more than its direction,
+// which turns clockwise in eighths from pointing right, as in corela. The cells
+// of the north region follow those of the center.
+const no_node is 0_i32
+const start_node is 9_i32
+const arrow_directions is 8_i32
+const center_region is 0_i32
+const north_region is 1_i32
+const all_cells is 162_i32
+const gate_q is 0_i32
+const center_gate_r is -4_i32
+const north_gate_r is 4_i32
+
+val region_names is array 0_str
+di
+  row "Center"_str
+  row "North"_str
+do
+
+def cell_fn region_i32 q_i32 r_i32 ret 0_i32
+di
+  var cell is q_i32
+  set cell to_add cell board_radius
+  set cell to_multiply cell board_side
+  set cell to_add cell r_i32 board_radius
+  var region_start is region_i32
+  set region_start to_multiply region_start board_cells
+  set cell to_add cell region_start
+  return cell
+do
+
+def in_bounds_fn q_i32 r_i32 ret 0_bool
+di
+  var s is 0_i32
+  set s to_subtract s q_i32 r_i32
+  var steps is math_to_abs q_i32
+  var r_steps is math_to_abs r_i32
+  var s_steps is math_to_abs s
+  set steps math_to_max steps r_steps
+  set steps math_to_max steps s_steps
+  if steps le board_radius
+  di
+    return true_bool
+  do
+  return false_bool
+do

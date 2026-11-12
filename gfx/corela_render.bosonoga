@@ -1,0 +1,147 @@
+// corela_render.bosonoga
+//
+// Drawing a frame.
+
+gfx_frame
+di
+  var background is color_background
+  var tile is color_tile
+  var selected is color_selected
+  var selected_label_text is color_selected_label_text
+  var faded_label_text is color_faded_label_text
+  var marker_border is color_marker_border
+  var marker_fill is color_marker_fill
+  var label_text is color_label_text
+  var chevron is color_chevron
+  var selected_chevron is color_selected_chevron
+  if not dark
+  di
+    set background to color_light_background
+    set tile to color_light_tile
+    set selected to color_light_selected
+    set selected_label_text to color_light_selected_label_text
+    set faded_label_text to color_light_faded_label_text
+    set marker_border to color_light_marker_border
+    set marker_fill to color_light_marker_fill
+    set label_text to color_light_label_text
+    set chevron to color_light_chevron
+    set selected_chevron to color_light_selected_chevron
+  do
+  gfx_clear background
+  val region_name is region_names at region with ret 0_str
+  gfx_draw_text left baseline text_x footer_baseline font_label text_size label_text region_name
+  val mode_name is mode_names at mode with ret 0_str
+  gfx_draw_text left baseline text_x mode_baseline font_label text_size label_text "Mode: "_str mode_name
+  val shown_action is math_to_min action global_replay_last_action
+  gfx_draw_text left baseline text_x header_baseline font_label text_size label_text "Action "_str shown_action " / "_str global_replay_last_action
+  var radius is hex_size
+  set radius to_subtract radius hex_tile_inset
+  // A board of radius 4 has the columns q = -4 to 4, and so the rows.
+  var q is 0_i32
+  set q to_subtract board_radius
+  while q le board_radius
+  di
+    var r is 0_i32
+    set r to_subtract board_radius
+    while r le board_radius
+    di
+      val inside is in_bounds_fn of q r with ret 0_bool
+      if inside
+      di
+        val x is hex_x_fn of q with ret 0_f32
+        val y is hex_y_fn of q r with ret 0_f32
+        var active is false_bool
+        if q eq selected_q and r eq selected_r
+        di
+          set active to true_bool
+        do
+        var color is tile
+        if active
+        di
+          set color to selected
+        do
+        gfx_draw_hex x y radius color
+        val here is cell_fn of region q r with ret 0_i32
+        val node is cells at here with ret 0_i32
+        if node eq no_node
+        di
+          // The label is the column letter and the row number, counted from 1
+          // at the bottom of the column, as corela's Board::label.
+          var column is q
+          set column to_add column board_radius
+          val letter is column_letters at column with ret 0_str
+          val letter_dips is column_dips at column with ret 0_bool
+          var bottom is board_radius
+          set bottom to_subtract bottom q
+          set bottom math_to_min bottom board_radius
+          var number is bottom
+          set number to_subtract number r
+          set number to_add number 1_i32
+          var digit is number
+          set digit to_subtract digit 1_i32
+          val digit_dips is row_dips at digit with ret 0_bool
+          var height is label_height
+          if letter_dips or digit_dips
+          di
+            set height to label_dipping_height
+          do
+          var left is x
+          set left to_subtract left label_half_width
+          set left math_to_round left
+          var half_height is height
+          set half_height to_divide half_height 2d0_f32
+          var label_baseline is y
+          set label_baseline to_subtract label_baseline half_height
+          set label_baseline to_add label_baseline label_ascent
+          set label_baseline math_to_round label_baseline
+          var text is faded_label_text
+          if active
+          di
+            set text to selected_label_text
+          do
+          gfx_draw_text left baseline left label_baseline font_label text_size text letter number
+        do
+      do
+      set r to_add r 1_i32
+    do
+    set q to_add q 1_i32
+  do
+  // Nodes are drawn over the tiles, as in corela, and an arrow on the selected
+  // tile in the color of the tile under it.
+  set q to_subtract board_radius
+  while q le board_radius
+  di
+    var r is 0_i32
+    set r to_subtract board_radius
+    while r le board_radius
+    di
+      val inside is in_bounds_fn of q r with ret 0_bool
+      if inside
+      di
+        val here is cell_fn of region q r with ret 0_i32
+        val node is cells at here with ret 0_i32
+        val x is hex_x_fn of q with ret 0_f32
+        val y is hex_y_fn of q r with ret 0_f32
+        if node eq start_node
+        di
+          gfx_draw_circle x y marker_outer_radius marker_border
+          gfx_draw_circle x y marker_inner_radius marker_fill
+        do
+        else if node not_eq no_node
+        di
+          var angle is to_f32 node
+          set angle to_subtract angle 1d0_f32
+          set angle to_multiply angle arrow_step
+          var color is chevron
+          if q eq selected_q and r eq selected_r
+          di
+            set color to selected_chevron
+          do
+          gfx_draw_icon x y icon_chevron angle color
+        do
+      do
+      set r to_add r 1_i32
+    do
+    set q to_add q 1_i32
+  do
+do
