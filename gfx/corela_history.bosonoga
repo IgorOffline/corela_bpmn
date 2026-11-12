@@ -1,0 +1,10 @@
+// corela_history.bosonoga
+//
+// The boards of undo and redo.
+
+// A board in the history is its cells, its region and its selected q and r.
+// history_values holds history_boards boards, so replay_last_action must be
+// below history_boards.
+const board_values is 165_i32
+const history_boards is 64_i32
+const history_values is 10560_i32

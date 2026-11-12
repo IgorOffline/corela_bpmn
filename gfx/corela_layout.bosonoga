@@ -1,0 +1,84 @@
+// corela_layout.bosonoga
+//
+// Where the board and the text are drawn.
+
+const hex_size is 32d0_f32
+const hex_tile_inset is 2d0_f32
+const marker_outer_radius is 15d75_f32
+const marker_inner_radius is 14d25_f32
+const column_spacing is 1d5_f32
+const row_spacing is 1d7320508_f32
+const origin_x is 576d0_f32
+const origin_y is 324d0_f32
+
+const text_x is 16d0_f32
+const text_size is 27d6_f32
+const header_baseline is 30d0_f32
+const mode_baseline is 604d0_f32
+const footer_baseline is 627d0_f32
+const label_half_width is 12d28_f32
+const label_ascent is 14d0_f32
+const label_height is 14d0_f32
+const label_dipping_height is 15d0_f32
+const arrow_step is 0d785398163_f32
+
+// The letter of each column from q = -4, and whether it reaches
+// below the baseline.
+val column_letters is array 0_str
+di
+  row "A"_str
+  row "B"_str
+  row "C"_str
+  row "D"_str
+  row "E"_str
+  row "F"_str
+  row "G"_str
+  row "H"_str
+  row "I"_str
+do
+
+val column_dips is array 0_bool
+di
+  row false_bool
+  row false_bool
+  row true_bool
+  row false_bool
+  row false_bool
+  row false_bool
+  row true_bool
+  row false_bool
+  row false_bool
+do
+
+// Of the row numbers 1 to 9.
+val row_dips is array 0_bool
+di
+  row false_bool
+  row false_bool
+  row true_bool
+  row false_bool
+  row true_bool
+  row true_bool
+  row false_bool
+  row true_bool
+  row false_bool
+do
+
+def hex_x_fn q_i32 ret 0_f32
+di
+  var x is to_f32 q_i32
+  set x to_multiply x hex_size column_spacing
+  set x to_add x origin_x
+  return x
+do
+
+def hex_y_fn q_i32 r_i32 ret 0_f32
+di
+  var half_column is to_f32 q_i32
+  set half_column to_divide half_column 2d0_f32
+  var y is to_f32 r_i32
+  set y to_add y half_column
+  set y to_multiply y hex_size row_spacing
+  set y to_add y origin_y
+  return y
+do
