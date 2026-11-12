@@ -1,0 +1,340 @@
+// gfx_corela_bpmn.bosonoga
+
+const board_radius is 4_i32
+const hex_size is 32d0_f32
+const hex_tile_inset is 2d0_f32
+const marker_outer_radius is 15d75_f32
+const marker_inner_radius is 14d25_f32
+const column_spacing is 1d5_f32
+const row_spacing is 1d7320508_f32
+const origin_x is 576d0_f32
+const origin_y is 324d0_f32
+const header_x is 16d0_f32
+const header_baseline is 30d0_f32
+const header_size is 27d6_f32
+const idle_close_ms is 3200_u32
+const frames_per_second is 60_u32
+// The cells with q and r from -4 to 4, which hold the board,
+// as cell_fn numbers them.
+const board_side is 9_i32
+const board_cells is 81_i32
+// Of a cell without an arrow. An arrow is stored as 1 more than its direction,
+// which turns clockwise in eighths from pointing right, as in corela.
+const no_arrow is 0_i32
+const arrow_directions is 8_i32
+const arrow_step is 0d785398163_f32
+
+def hex_x_fn q_i32 ret 0_f32
+di
+  var x is to_f32 q_i32
+  set x to_multiply x hex_size column_spacing
+  set x to_add x origin_x
+  return x
+do
+
+def hex_y_fn q_i32 r_i32 ret 0_f32
+di
+  var half_column is to_f32 q_i32
+  set half_column to_divide half_column 2d0_f32
+  var y is to_f32 r_i32
+  set y to_add y half_column
+  set y to_multiply y hex_size row_spacing
+  set y to_add y origin_y
+  return y
+do
+
+def cell_fn q_i32 r_i32 ret 0_i32
+di
+  var cell is q_i32
+  set cell to_add cell board_radius
+  set cell to_multiply cell board_side
+  set cell to_add cell r_i32 board_radius
+  return cell
+do
+
+def in_bounds_fn q_i32 r_i32 ret 0_bool
+di
+  var s is 0_i32
+  set s to_subtract s q_i32 r_i32
+  var steps is math_to_abs q_i32
+  var r_steps is math_to_abs r_i32
+  var s_steps is math_to_abs s
+  set steps math_to_max steps r_steps
+  set steps math_to_max steps s_steps
+  if steps le board_radius
+  di
+    return true_bool
+  do
+  return false_bool
+do
+
+bosonoga_global
+di
+  var selected_q is 0_i32
+  var selected_r is 0_i32
+  var action is 1_i32
+  var any_key_pressed is false_bool
+  var closing is false_bool
+  var dark is true_bool
+  var has_start is false_bool
+  var start_q is 0_i32
+  var start_r is 0_i32
+  var arrows is array 0_i32 rows board_cells
+do
+
+gfx_key_down
+di
+  set any_key_pressed to true_bool
+  val cell is cell_fn of selected_q selected_r with ret 0_i32
+  val turn is arrows at cell with ret 0_i32
+  var on_start is false_bool
+  if has_start and selected_q eq start_q and selected_r eq start_r
+  di
+    set on_start to true_bool
+  do
+  if gfx_key eq key_escape
+  di
+    set closing to true_bool
+    info "core: action_"_str action ": quit"_str
+  do
+  if gfx_key eq key_theme
+  di
+    if dark
+    di
+      set dark to false_bool
+      info "core: action_"_str action ": light_theme"_str
+    do
+    else
+    di
+      set dark to true_bool
+      info "core: action_"_str action ": dark_theme"_str
+    do
+  do
+  if gfx_key eq key_start
+  di
+    if on_start or turn not_eq no_arrow
+    di
+      info "core: action_"_str action ": "_str selected_q "_"_str selected_r "_is_taken_no_start_node"_str
+    do
+    else if has_start
+    di
+      info "core: action_"_str action ": the_project_already_has_a_start_node"_str
+    do
+    else
+    di
+      set has_start to true_bool
+      set start_q to selected_q
+      set start_r to selected_r
+      set action to_add action 1_i32
+      info "core: action_"_str action ": placed_start_node_at_"_str start_q "_"_str start_r
+    do
+  do
+  if gfx_key eq key_arrow
+  di
+    if on_start
+    di
+      info "core: action_"_str action ": "_str selected_q "_"_str selected_r "_holds_the_start_node_no_arrow"_str
+    do
+    else if turn eq no_arrow
+    di
+      set arrows at cell to 1_i32
+      set action to_add action 1_i32
+      info "core: action_"_str action ": placed_arrow_at_"_str selected_q "_"_str selected_r
+    do
+    else
+    di
+      // turn is its direction and 1, so it is also the next direction.
+      var turned is turn
+      set turned to_mod turn arrow_directions
+      var stored is turned
+      set stored to_add turned 1_i32
+      set arrows at cell to stored
+      set action to_add action 1_i32
+      info "core: action_"_str action ": turned_arrow_at_"_str selected_q "_"_str selected_r "_to_"_str turned
+    do
+  do
+  if gfx_key eq key_remove
+  di
+    if on_start
+    di
+      set has_start to false_bool
+      set action to_add action 1_i32
+      info "core: action_"_str action ": removed_node_at_"_str start_q "_"_str start_r
+    do
+    else if turn not_eq no_arrow
+    di
+      set arrows at cell to no_arrow
+      set action to_add action 1_i32
+      info "core: action_"_str action ": removed_node_at_"_str selected_q "_"_str selected_r
+    do
+    else
+    di
+      info "core: action_"_str action ": nothing_to_remove_at_"_str selected_q "_"_str selected_r
+    do
+  do
+  var dq is 0_i32
+  var dr is 0_i32
+  var moves is false_bool
+  if gfx_key eq key_north
+  di
+    set dr to -1_i32
+    set moves to true_bool
+  do
+  else if gfx_key eq key_north_east
+  di
+    set dq to 1_i32
+    set dr to -1_i32
+    set moves to true_bool
+  do
+  else if gfx_key eq key_south_east
+  di
+    set dq to 1_i32
+    set moves to true_bool
+  do
+  else if gfx_key eq key_south
+  di
+    set dr to 1_i32
+    set moves to true_bool
+  do
+  else if gfx_key eq key_south_west
+  di
+    set dq to -1_i32
+    set dr to 1_i32
+    set moves to true_bool
+  do
+  else if gfx_key eq key_north_west
+  di
+    set dq to -1_i32
+    set moves to true_bool
+  do
+  if moves
+  di
+    var q is selected_q
+    set q to_add q dq
+    var r is selected_r
+    set r to_add r dr
+    val inside is in_bounds_fn of q r with ret 0_bool
+    if inside
+    di
+      set selected_q to q
+      set selected_r to r
+      set action to_add action 1_i32
+      info "core: action_"_str action ": selected_"_str q "_"_str r
+    do
+    else
+    di
+      info "core: action_"_str action ": "_str q "_"_str r "_is_out_of_bounds"_str
+    do
+  do
+do
+
+gfx_frame
+di
+  var background is color_background
+  var tile is color_tile
+  var selected is color_selected
+  var marker_border is color_marker_border
+  var marker_fill is color_marker_fill
+  var label_text is color_label_text
+  var chevron is color_chevron
+  var selected_chevron is color_selected_chevron
+  if not dark
+  di
+    set background to color_light_background
+    set tile to color_light_tile
+    set selected to color_light_selected
+    set marker_border to color_light_marker_border
+    set marker_fill to color_light_marker_fill
+    set label_text to color_light_label_text
+    set chevron to color_light_chevron
+    set selected_chevron to color_light_selected_chevron
+  do
+  gfx_clear background
+  val shown_action is math_to_min action global_replay_last_action
+  gfx_draw_text left baseline header_x header_baseline font_label header_size label_text "Action "_str shown_action " / "_str global_replay_last_action
+  var radius is hex_size
+  set radius to_subtract radius hex_tile_inset
+  // A board of radius 4 has the columns q = -4 to 4, and so the rows.
+  var q is 0_i32
+  set q to_subtract board_radius
+  while q le board_radius
+  di
+    var r is 0_i32
+    set r to_subtract board_radius
+    while r le board_radius
+    di
+      val inside is in_bounds_fn of q r with ret 0_bool
+      if inside
+      di
+        val x is hex_x_fn of q with ret 0_f32
+        val y is hex_y_fn of q r with ret 0_f32
+        var color is tile
+        if q eq selected_q and r eq selected_r
+        di
+          set color to selected
+        do
+        gfx_draw_hex x y radius color
+      do
+      set r to_add r 1_i32
+    do
+    set q to_add q 1_i32
+  do
+  // Nodes are drawn over the tiles, as in corela, and an arrow on the selected
+  // tile in the color of the tile under it.
+  set q to_subtract board_radius
+  while q le board_radius
+  di
+    var r is 0_i32
+    set r to_subtract board_radius
+    while r le board_radius
+    di
+      val inside is in_bounds_fn of q r with ret 0_bool
+      val cell is cell_fn of q r with ret 0_i32
+      val turn is arrows at cell with ret 0_i32
+      if inside and turn not_eq no_arrow
+      di
+        val x is hex_x_fn of q with ret 0_f32
+        val y is hex_y_fn of q r with ret 0_f32
+        var angle is to_f32 turn
+        set angle to_subtract angle 1d0_f32
+        set angle to_multiply angle arrow_step
+        var color is chevron
+        if q eq selected_q and r eq selected_r
+        di
+          set color to selected_chevron
+        do
+        gfx_draw_icon x y icon_chevron angle color
+      do
+      set r to_add r 1_i32
+    do
+    set q to_add q 1_i32
+  do
+  if has_start
+  di
+    val x is hex_x_fn of start_q with ret 0_f32
+    val y is hex_y_fn of start_q start_r with ret 0_f32
+    gfx_draw_circle x y marker_outer_radius marker_border
+    gfx_draw_circle x y marker_inner_radius marker_fill
+  do
+do
+
+gfx_main
+di
+  var idle_close_frames is idle_close_ms
+  set idle_close_frames to_multiply idle_close_frames frames_per_second
+  set idle_close_frames to_divide idle_close_frames 1000_u32
+  var waited_frames is 0_u32
+  while not closing
+  di
+    gfx_await_next_frame
+    if not any_key_pressed
+    di
+      set waited_frames to_add waited_frames 1_u32
+      if waited_frames ge idle_close_frames
+      di
+        set closing to true_bool
+      do
+    do
+  do
+  return exit_success
+do
