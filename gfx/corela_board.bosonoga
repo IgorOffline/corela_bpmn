@@ -2,7 +2,7 @@
 //
 // The board and its two regions.
 
-const board_radius is 4_i32
+pub const board_radius is 4_i32
 
 // The cells with q and r from -4 to 4, which hold the board,
 // as cell_fn numbers them.
@@ -12,23 +12,23 @@ const board_cells is 81_i32
 // A cell holds no_node, start_node, or an arrow as 1 more than its direction,
 // which turns clockwise in eighths from pointing right, as in corela. The cells
 // of the north region follow those of the center.
-const no_node is 0_i32
-const start_node is 9_i32
-const arrow_directions is 8_i32
-const center_region is 0_i32
-const north_region is 1_i32
-const all_cells is 162_i32
-const gate_q is 0_i32
-const center_gate_r is -4_i32
-const north_gate_r is 4_i32
+pub const no_node is 0_i32
+pub const start_node is 9_i32
+pub const arrow_directions is 8_i32
+pub const center_region is 0_i32
+pub const north_region is 1_i32
+pub const all_cells is 162_i32
+pub const gate_q is 0_i32
+pub const center_gate_r is -4_i32
+pub const north_gate_r is 4_i32
 
-val region_names is array 0_str
+pub val region_names is array 0_str
 di
   row "Center"_str
   row "North"_str
 do
 
-def cell_fn region_i32 q_i32 r_i32 ret 0_i32
+pub def cell_fn region_i32 q_i32 r_i32 ret 0_i32
 di
   var cell is q_i32
   set cell to_add cell board_radius
@@ -40,7 +40,7 @@ di
   return cell
 do
 
-def in_bounds_fn q_i32 r_i32 ret 0_bool
+pub def in_bounds_fn q_i32 r_i32 ret 0_bool
 di
   var s is 0_i32
   set s to_subtract s q_i32 r_i32
