@@ -2,22 +2,22 @@
 //
 // The input modes and the commands that keys run.
 
-const mode_none is 0_i32
-const mode_input is 1_i32
-const mode_undo is 2_i32
-const mode_redo is 3_i32
-const mode_save is 4_i32
-const mode_load is 5_i32
-const mode_count is 6_i32
-const no_command is 0_i32
-const command_undo is 1_i32
-const command_redo is 2_i32
-const command_move is 3_i32
-const command_start is 4_i32
-const command_arrow is 5_i32
-const command_remove is 6_i32
+pub const mode_none is 0_i32
+pub const mode_input is 1_i32
+pub const mode_undo is 2_i32
+pub const mode_redo is 3_i32
+pub const mode_save is 4_i32
+pub const mode_load is 5_i32
+pub const mode_count is 6_i32
+pub const no_command is 0_i32
+pub const command_undo is 1_i32
+pub const command_redo is 2_i32
+pub const command_move is 3_i32
+pub const command_start is 4_i32
+pub const command_arrow is 5_i32
+pub const command_remove is 6_i32
 
-val mode_names is array 0_str
+pub val mode_names is array 0_str
 di
   row "None"_str
   row "Input"_str
@@ -27,7 +27,7 @@ di
   row "Load"_str
 do
 
-val mode_codes is array 0_str
+pub val mode_codes is array 0_str
 di
   row "none"_str
   row "input"_str

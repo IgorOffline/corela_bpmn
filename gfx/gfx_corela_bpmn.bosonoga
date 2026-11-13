@@ -1,12 +1,11 @@
 // gfx_corela_bpmn.bosonoga
 //
-// corela_bpmn, a BPMN editor on a hex board. Its
-// files are imported in the order of what each one uses.
+// corela_bpmn, a BPMN editor on a hex board.
 
-io_raw_import "corela_board.bosonoga"_str
-io_raw_import "corela_layout.bosonoga"_str
-io_raw_import "corela_input_mode.bosonoga"_str
-io_raw_import "corela_history.bosonoga"_str
+mod "corela_board.bosonoga"_str
+mod "corela_layout.bosonoga"_str
+mod "corela_input_mode.bosonoga"_str
+mod "corela_history.bosonoga"_str
 
 const frames_per_second is 60_u32
 
@@ -27,8 +26,8 @@ di
   var dark is true_bool
 do
 
-io_raw_import "corela_input.bosonoga"_str
-io_raw_import "corela_render.bosonoga"_str
+mod "corela_input.bosonoga"_str
+mod "corela_render.bosonoga"_str
 
 // Steps once per frame. Unless a key was pressed, it closes after
 // idle_close_ms of [global], or never if that is 0.
