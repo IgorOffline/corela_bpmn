@@ -14,9 +14,9 @@ di
   var region is center_region
   var selected_q is 0_i32
   var selected_r is 0_i32
-  var cells is array 0_i32 rows all_cells
-  var past is array 0_i32 rows history_values
-  var future is array 0_i32 rows history_values
+  var cells is array 0_i32 with_len_col all_cells
+  var past is array 0_i32 with_len_col history_values
+  var future is array 0_i32 with_len_col history_values
   var past_count is 0_i32
   var future_count is 0_i32
   var action is 1_i32

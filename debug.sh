@@ -1,51 +1,81 @@
 #!/bin/sh
-# Builds the corela_bpmn gfx runner against a built bosonoga library and runs a
-# gfx app in a window. Bosonoga is found with pkg-config, through its
-# bosonoga.pc and bosonoga_gfx.pc:
+# Builds the corela_bpmn gfx app with the C++ bosonoga and runs it in a window:
+# its generator writes the C++ of the program, which is compiled with the
+# bosonoga runtime and linked with its window, gfx/window.cc.
 #
-#   BOSONOGA_DIR  the directory of bosonoga.pc, ../di_do_bosonoga/bosonoga by
-#                 default, whose build/libbosonoga.a and
-#                 build/libbosonoga_gfx.a must already be built
-#   GLIB_BUILD    the GLib build, for glib-2.0.pc and the rpath
+#   BOSONOGA_DIR  the bosonoga directory, ../di_do_bosonoga/bosonoga by default,
+#                 whose build.sh must already have built the generator; the
+#                 JDK is the one in its ../java
 #
 # ./debug.sh runs gfx/gfx_corela_bpmn.bosonoga, and ./debug.sh FILE runs
-# another gfx lesson. Set G_MESSAGES_DEBUG=all to see why a program fails.
+# another gfx program. Needs clang and clang++ on PATH.
 set -eu
 
 cd "$(dirname "$0")"
 
 : "${BOSONOGA_DIR:=$PWD/../di_do_bosonoga/bosonoga}"
-: "${GLIB_BUILD:=/home/igor/dev/glib-2.90.1/build}"
-export PKG_CONFIG_PATH="$BOSONOGA_DIR:$GLIB_BUILD/meson-uninstalled"
+: "${CC:=clang}"
+: "${CXX:=clang++}"
+
+fail() {
+  printf '%s\n' "$*" >&2
+  exit 1
+}
 
 if test "$#" -gt 1; then
-  printf 'usage: %s [FILE]\n' "$0" >&2
-  exit 1
+  fail "usage: $0 [FILE]"
 fi
+program=${1:-gfx/gfx_corela_bpmn.bosonoga}
 
-if ! pkg-config --exists bosonoga_gfx || ! test -f "$BOSONOGA_DIR/build/libbosonoga.a" ||
-  ! test -f "$BOSONOGA_DIR/build/libbosonoga_gfx.a"; then
-  printf 'bosonoga is not built in %s, see its build.sh\n' "$BOSONOGA_DIR" >&2
-  exit 1
+classes=$BOSONOGA_DIR/build/bosonoga/classes
+antlr_runtime=$BOSONOGA_DIR/build/antlr/runtime
+if ! test -d "$classes" || ! test -d "$antlr_runtime"; then
+  fail "bosonoga is not built in $BOSONOGA_DIR, see its build.sh"
 fi
+set -- "$BOSONOGA_DIR"/../java/jdk*/bin/java
+if test "$#" -ne 1 || ! test -x "$1"; then
+  fail "$BOSONOGA_DIR/../java must hold exactly one JDK"
+fi
+java=$1
 
 # corela_bpmn works with the bosonoga of its own version, the one in [meta].
-corela_bpmn_version=$(awk -F '"' '/^\[/ { meta = ($0 == "[meta]") } meta && /^version *=/ { print $2 }' regina.ini)
-bosonoga_version=$(pkg-config --modversion bosonoga)
+meta_version() {
+  awk -F '"' '/^\[/ { meta = ($0 == "[meta]") } meta && /^version *=/ { print $2 }' "$1"
+}
+corela_bpmn_version=$(meta_version regina.ini)
+bosonoga_version=$(meta_version "$BOSONOGA_DIR/regina.ini")
 if test -z "$corela_bpmn_version"; then
-  printf 'regina.ini has no version in [meta]\n' >&2
-  exit 1
+  fail "regina.ini has no version in [meta]"
 fi
 if test "$bosonoga_version" != "$corela_bpmn_version"; then
-  printf 'corela_bpmn %s needs bosonoga %s, but %s has bosonoga %s\n' \
-    "$corela_bpmn_version" "$corela_bpmn_version" "$BOSONOGA_DIR" "$bosonoga_version" >&2
-  exit 1
+  fail "corela_bpmn $corela_bpmn_version needs bosonoga $corela_bpmn_version, but $BOSONOGA_DIR has bosonoga $bosonoga_version"
 fi
 
-CFLAGS="-std=c11 -O0 -g -fsanitize=undefined -fno-sanitize-recover=all -fno-omit-frame-pointer -Wall -Wextra -Wpedantic -Werror -Wconversion -Wsign-conversion -Wshadow -Wcast-qual -Wcast-align -Wwrite-strings -Wstrict-prototypes -Wmissing-prototypes -Wmissing-variable-declarations -Wredundant-decls -Wnull-dereference -Wdouble-promotion -Wfloat-equal -Wformat=2 -Wundef -Wswitch-enum -Wunused -Wunreachable-code -Wvla"
+CXXFLAGS="-std=c++17 -O0 -g -fsanitize=undefined -fno-sanitize-recover=all -Wall -Wextra -Wpedantic -Werror -Wconversion -Wsign-conversion -Wshadow"
+CFLAGS="-std=c11 -O0 -g -fsanitize=undefined -fno-sanitize-recover=all"
+VENDOR="-isystem $BOSONOGA_DIR/sokol -isystem $BOSONOGA_DIR/fontstash -isystem $BOSONOGA_DIR/stb"
+RUNTIME="-I $BOSONOGA_DIR/runtime"
 
-mkdir -p build
-clang-format -i --style=Google runner/gfx.c
+# The generator reads regina.ini from here, as the program's paths are.
+rm -rf build/cc
+mkdir -p build/cc build/obj
+"$java" -cp "$classes:$antlr_runtime" bosonoga.generator.Main build/cc "$program"
+
+# The vendored libraries take long to compile, so they are compiled again
+# only when bosonoga's copy of them changes.
+if ! test -f build/obj/vendor.o || test "$BOSONOGA_DIR/gfx/vendor.c" -nt build/obj/vendor.o; then
+  # shellcheck disable=SC2086
+  $CC $CFLAGS $VENDOR -c "$BOSONOGA_DIR/gfx/vendor.c" -o build/obj/vendor.o
+fi
+# bosonoga lets a variable be compared with, or set to, itself, which clang
+# would otherwise reject.
 # shellcheck disable=SC2086
-clang $CFLAGS $(pkg-config --cflags bosonoga_gfx | sed 's/-I/-isystem /g') runner/gfx.c $(pkg-config --static --libs bosonoga_gfx) -Wl,-rpath,"$GLIB_BUILD/glib" -o build/gfx_runner
-exec build/gfx_runner "${1:-gfx/gfx_corela_bpmn.bosonoga}"
+$CXX $CXXFLAGS -Wno-tautological-compare -Wno-self-assign $RUNTIME -c build/cc/*.cc -o build/obj/program.o
+# shellcheck disable=SC2086
+$CXX $CXXFLAGS $VENDOR $RUNTIME -c "$BOSONOGA_DIR/gfx/window.cc" -o build/obj/window.o
+# shellcheck disable=SC2086
+$CXX $CXXFLAGS $RUNTIME -c "$BOSONOGA_DIR/gfx/main.cc" -o build/obj/main.o
+# shellcheck disable=SC2086
+$CXX $CXXFLAGS build/obj/program.o build/obj/window.o build/obj/main.o build/obj/vendor.o \
+  -pthread -lX11 -lXi -lXcursor -lGL -ldl -lm -o build/gfx_runner
+exec build/gfx_runner
