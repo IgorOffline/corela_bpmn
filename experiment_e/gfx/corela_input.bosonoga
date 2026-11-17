@@ -1,0 +1,374 @@
+// corela_input.bosonoga
+//
+// The keys.
+
+// Handles a key as corela's handle_key does. A command that succeeds is the
+// next action, which an undo or a redo is too, and the last one ends the run.
+gfx_key_down
+di
+  set any_key_pressed to true_bool
+  val last is global_replay_last_action
+  val shown is math_to_min action last
+  var next_action is action
+  set next_action to_add next_action 1_i32
+  val shown_next is math_to_min next_action last
+  var done is false_bool
+  if action gt last
+  di
+    set done to true_bool
+  do
+  if not done and mode eq mode_none and gfx_key not_eq key_cycle
+  di
+    set done to true_bool
+  do
+  if not done and gfx_key eq key_theme
+  di
+    set done to true_bool
+    if dark
+    di
+      set dark to false_bool
+      info "core: action_"_str shown "_of_"_str last ": light_theme"_str
+    do
+    else
+    di
+      set dark to true_bool
+      info "core: action_"_str shown "_of_"_str last ": dark_theme"_str
+    do
+  do
+  if not done and gfx_key eq key_escape
+  di
+    set done to true_bool
+    set mode to mode_none
+    info "core: action_"_str shown "_of_"_str last ": input_mode_none"_str
+  do
+  if not done and gfx_key eq key_cycle
+  di
+    set done to true_bool
+    set mode to_add mode 1_i32
+    set mode to_mod mode mode_count
+    val code is mode_codes at mode with ret 0_str
+    info "core: action_"_str shown "_of_"_str last ": input_mode_"_str code
+  do
+
+  var command is no_command
+  var dq is 0_i32
+  var dr is 0_i32
+  if not done and gfx_key eq key_run
+  di
+    set done to true_bool
+    if mode eq mode_undo
+    di
+      set command to command_undo
+    do
+    else if mode eq mode_redo
+    di
+      set command to command_redo
+    do
+    else if mode eq mode_save
+    di
+      if action eq 1_i32
+      di
+        info "core: action_"_str shown "_of_"_str last ": nothing_to_save"_str
+      do
+      else
+      di
+        info "core: replay_not_saved: saving_needs_file_io_in_bosonoga"_str
+      do
+    do
+    else if mode eq mode_load
+    di
+      info "core: replay_not_loaded: loading_needs_file_io_in_bosonoga"_str
+      info "core: action_"_str shown "_of_"_str last ": quit"_str
+      set closing to true_bool
+    do
+  do
+  if not done and mode eq mode_input
+  di
+    if gfx_key eq key_start
+    di
+      set command to command_start
+    do
+    else if gfx_key eq key_arrow
+    di
+      set command to command_arrow
+    do
+    else if gfx_key eq key_remove
+    di
+      set command to command_remove
+    do
+    else if gfx_key eq key_north
+    di
+      set command to command_move
+      set dr to -1_i32
+    do
+    else if gfx_key eq key_south
+    di
+      set command to command_move
+      set dr to 1_i32
+    do
+    else if gfx_key eq key_north_east
+    di
+      set command to command_move
+      set dq to 1_i32
+      set dr to -1_i32
+    do
+    else if gfx_key eq key_south_east
+    di
+      set command to command_move
+      set dq to 1_i32
+    do
+    else if gfx_key eq key_north_west
+    di
+      set command to command_move
+      set dq to -1_i32
+    do
+    else if gfx_key eq key_south_west
+    di
+      set command to command_move
+      set dq to -1_i32
+      set dr to 1_i32
+    do
+  do
+
+  var recorded is false_bool
+  if command eq command_undo
+  di
+    if past_count eq 0_i32
+    di
+      info "core: action_"_str shown "_of_"_str last ": nothing_to_undo"_str
+    do
+    else
+    di
+      var base is future_count
+      set base to_multiply base board_values
+      var index is 0_i32
+      while index lt all_cells
+      di
+        val value is cells at index with ret 0_i32
+        var slot is base
+        set slot to_add slot index
+        set future at slot to value
+        set index to_add index 1_i32
+      do
+      set base to_add base all_cells
+      set future at base to region
+      set base to_add base 1_i32
+      set future at base to selected_q
+      set base to_add base 1_i32
+      set future at base to selected_r
+      set future_count to_add future_count 1_i32
+      set past_count to_subtract past_count 1_i32
+      set base to past_count
+      set base to_multiply base board_values
+      set index to 0_i32
+      while index lt all_cells
+      di
+        var slot is base
+        set slot to_add slot index
+        val value is past at slot with ret 0_i32
+        set cells at index to value
+        set index to_add index 1_i32
+      do
+      set base to_add base all_cells
+      set region to past at base with ret 0_i32
+      set base to_add base 1_i32
+      set selected_q to past at base with ret 0_i32
+      set base to_add base 1_i32
+      set selected_r to past at base with ret 0_i32
+      set recorded to true_bool
+      info "core: action_"_str shown_next "_of_"_str last ": undo_"_str past_count "_more_to_undo_"_str future_count "_to_redo"_str
+    do
+  do
+  else if command eq command_redo
+  di
+    if future_count eq 0_i32
+    di
+      info "core: action_"_str shown "_of_"_str last ": nothing_to_redo"_str
+    do
+    else
+    di
+      var base is past_count
+      set base to_multiply base board_values
+      var index is 0_i32
+      while index lt all_cells
+      di
+        val value is cells at index with ret 0_i32
+        var slot is base
+        set slot to_add slot index
+        set past at slot to value
+        set index to_add index 1_i32
+      do
+      set base to_add base all_cells
+      set past at base to region
+      set base to_add base 1_i32
+      set past at base to selected_q
+      set base to_add base 1_i32
+      set past at base to selected_r
+      set past_count to_add past_count 1_i32
+      set future_count to_subtract future_count 1_i32
+      set base to future_count
+      set base to_multiply base board_values
+      set index to 0_i32
+      while index lt all_cells
+      di
+        var slot is base
+        set slot to_add slot index
+        val value is future at slot with ret 0_i32
+        set cells at index to value
+        set index to_add index 1_i32
+      do
+      set base to_add base all_cells
+      set region to future at base with ret 0_i32
+      set base to_add base 1_i32
+      set selected_q to future at base with ret 0_i32
+      set base to_add base 1_i32
+      set selected_r to future at base with ret 0_i32
+      set recorded to true_bool
+      info "core: action_"_str shown_next "_of_"_str last ": redo_"_str past_count "_to_undo_"_str future_count "_more_to_redo"_str
+    do
+  do
+  else if command not_eq no_command
+  di
+    // The present board becomes the next one in the past, which counts only
+    // if the edit succeeds.
+    var base is past_count
+    set base to_multiply base board_values
+    var index is 0_i32
+    while index lt all_cells
+    di
+      val value is cells at index with ret 0_i32
+      var slot is base
+      set slot to_add slot index
+      set past at slot to value
+      set index to_add index 1_i32
+    do
+    set base to_add base all_cells
+    set past at base to region
+    set base to_add base 1_i32
+    set past at base to selected_q
+    set base to_add base 1_i32
+    set past at base to selected_r
+
+    val q is selected_q
+    val r is selected_r
+    val here is cell_fn of region q r with ret 0_i32
+    val node is cells at here with ret 0_i32
+    if command eq command_move
+    di
+      if region eq center_region and q eq gate_q and r eq center_gate_r and dq eq 0_i32 and dr eq -1_i32
+      di
+        set region to north_region
+        set selected_r to north_gate_r
+        set recorded to true_bool
+        info "core: action_"_str shown_next "_of_"_str last ": entered_north_region"_str
+      do
+      else if region eq north_region and q eq gate_q and r eq north_gate_r and dq eq 0_i32 and dr eq 1_i32
+      di
+        set region to center_region
+        set selected_r to center_gate_r
+        set recorded to true_bool
+        info "core: action_"_str shown_next "_of_"_str last ": entered_center_region"_str
+      do
+      else
+      di
+        var to_q is q
+        set to_q to_add to_q dq
+        var to_r is r
+        set to_r to_add to_r dr
+        val inside is in_bounds_fn of to_q to_r with ret 0_bool
+        if inside
+        di
+          set selected_q to to_q
+          set selected_r to to_r
+          set recorded to true_bool
+          info "core: action_"_str shown_next "_of_"_str last ": selected_"_str to_q "_"_str to_r
+        do
+        else
+        di
+          info "core: action_"_str shown "_of_"_str last ": "_str to_q "_"_str to_r "_is_out_of_bounds"_str
+        do
+      do
+    do
+    else if command eq command_start
+    di
+      var has_start is false_bool
+      var cell is 0_i32
+      while cell lt all_cells
+      di
+        val held is cells at cell with ret 0_i32
+        if held eq start_node
+        di
+          set has_start to true_bool
+        do
+        set cell to_add cell 1_i32
+      do
+      if node not_eq no_node
+      di
+        info "core: action_"_str shown "_of_"_str last ": "_str q "_"_str r "_is_taken_no_start_node"_str
+      do
+      else if has_start
+      di
+        info "core: action_"_str shown "_of_"_str last ": the_project_already_has_a_start_node"_str
+      do
+      else
+      di
+        set cells at here to start_node
+        set recorded to true_bool
+        info "core: action_"_str shown_next "_of_"_str last ": placed_start_node_at_"_str q "_"_str r
+      do
+    do
+    else if command eq command_arrow
+    di
+      if node eq start_node
+      di
+        info "core: action_"_str shown "_of_"_str last ": "_str q "_"_str r "_holds_the_start_node_no_arrow"_str
+      do
+      else if node eq no_node
+      di
+        set cells at here to 1_i32
+        set recorded to true_bool
+        info "core: action_"_str shown_next "_of_"_str last ": placed_arrow_at_"_str q "_"_str r
+      do
+      else
+      di
+        // node is its direction and 1, so it is also the next direction.
+        var turned is node
+        set turned to_mod node arrow_directions
+        var stored is turned
+        set stored to_add turned 1_i32
+        set cells at here to stored
+        set recorded to true_bool
+        info "core: action_"_str shown_next "_of_"_str last ": turned_arrow_at_"_str q "_"_str r "_to_"_str turned
+      do
+    do
+    else if command eq command_remove
+    di
+      if node eq no_node
+      di
+        info "core: action_"_str shown "_of_"_str last ": nothing_to_remove_at_"_str q "_"_str r
+      do
+      else
+      di
+        set cells at here to no_node
+        set recorded to true_bool
+        info "core: action_"_str shown_next "_of_"_str last ": removed_node_at_"_str q "_"_str r
+      do
+    do
+    if recorded
+    di
+      set past_count to_add past_count 1_i32
+      set future_count to 0_i32
+    do
+  do
+
+  if recorded
+  di
+    set action to next_action
+    if action gt last
+    di
+      info "core: replay_not_saved: saving_needs_file_io_in_bosonoga"_str
+      info "core: action_"_str shown_next "_of_"_str last ": quit"_str
+      set closing to true_bool
+    do
+  do
+do
