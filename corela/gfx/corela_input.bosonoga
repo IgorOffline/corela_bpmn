@@ -1,0 +1,76 @@
+// corela_input.bosonoga
+//
+// The keys.
+
+// Moves the selection to a neighbour on the board, as corela's handle_key
+// does in its input mode, and switches between the dark and the light theme.
+gfx_key_down
+di
+  set any_key_pressed to true_bool
+  var dq is 0_i32
+  var dr is 0_i32
+  var moves is true_bool
+  if gfx_key eq key_theme
+  di
+    set moves to false_bool
+    if dark
+    di
+      set dark to false_bool
+      info "core: light_theme"_str
+    do
+    else
+    di
+      set dark to true_bool
+      info "core: dark_theme"_str
+    do
+  do
+  else if gfx_key eq key_north
+  di
+    set dr to -1_i32
+  do
+  else if gfx_key eq key_south
+  di
+    set dr to 1_i32
+  do
+  else if gfx_key eq key_north_east
+  di
+    set dq to 1_i32
+    set dr to -1_i32
+  do
+  else if gfx_key eq key_south_east
+  di
+    set dq to 1_i32
+  do
+  else if gfx_key eq key_north_west
+  di
+    set dq to -1_i32
+  do
+  else if gfx_key eq key_south_west
+  di
+    set dq to -1_i32
+    set dr to 1_i32
+  do
+  else
+  di
+    set moves to false_bool
+  do
+
+  if moves
+  di
+    var to_q is selected_q
+    set to_q to_add to_q dq
+    var to_r is selected_r
+    set to_r to_add to_r dr
+    val inside is in_bounds_fn of to_q to_r with ret 0_bool
+    if inside
+    di
+      set selected_q to to_q
+      set selected_r to to_r
+      info "core: selected_"_str to_q "_"_str to_r
+    do
+    else
+    di
+      info "core: "_str to_q "_"_str to_r "_is_out_of_bounds"_str
+    do
+  do
+do

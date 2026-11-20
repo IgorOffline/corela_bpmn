@@ -1,0 +1,43 @@
+// gfx_corela_bpmn.bosonoga
+//
+// corela_bpmn, a BPMN editor on a hex board.
+
+mod "corela_board.bosonoga"_str
+mod "corela_layout.bosonoga"_str
+
+const frames_per_second is 60_u32
+
+bosonoga_global
+di
+  var selected_q is 0_i32
+  var selected_r is 0_i32
+  var any_key_pressed is false_bool
+  var closing is false_bool
+  var dark is true_bool
+do
+
+mod "corela_input.bosonoga"_str
+mod "corela_render.bosonoga"_str
+
+// Steps once per frame. Unless a key was pressed, it closes after
+// idle_close_ms of [global], or never if that is 0.
+gfx_main
+di
+  var idle_close_frames is global_idle_close_ms
+  set idle_close_frames to_multiply idle_close_frames frames_per_second
+  set idle_close_frames to_divide idle_close_frames 1000_u32
+  var waited_frames is 0_u32
+  while not closing
+  di
+    gfx_await_next_frame
+    if not any_key_pressed and idle_close_frames gt 0_u32
+    di
+      set waited_frames to_add waited_frames 1_u32
+      if waited_frames ge idle_close_frames
+      di
+        set closing to true_bool
+      do
+    do
+  do
+  return exit_success
+do
