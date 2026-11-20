@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 use bosonoga::Program;
 use bosonoga::ast::ExitStatus;
 use bosonoga::gfx::{Input, Scene, Window};
-use bosonoga::settings::Settings;
+use bosonoga::settings::{Asset, Settings};
 use macroquad::input::utils::{register_input_subscriber, repeat_all_miniquad_input};
 use macroquad::input::{is_quit_requested, prevent_quit};
 use macroquad::miniquad::{EventHandler, KeyCode, KeyMods};
@@ -72,6 +72,22 @@ fn fail(message: &str) -> ExitCode {
     ExitCode::FAILURE
 }
 
+fn read_assets(
+    path: &str,
+    group: &str,
+    assets: &[(String, Asset)],
+) -> Result<Vec<(String, String, Vec<u8>)>, String> {
+    assets
+        .iter()
+        .map(|(key, asset)| {
+            let shown = asset.path.display().to_string();
+            std::fs::read(&asset.path)
+                .map(|bytes| (key.clone(), shown.clone(), bytes))
+                .map_err(|error| format!("{path}: {group}_{key}: {shown}: {error}"))
+        })
+        .collect()
+}
+
 fn main() -> ExitCode {
     let mut arguments = std::env::args().skip(1);
     let path = arguments
@@ -99,31 +115,29 @@ fn main() -> ExitCode {
     if !program.is_gfx() {
         return fail(&format!("{path}: a gfx app needs gfx_main"));
     }
-    let mut fonts = Vec::new();
-    for (key, asset) in program.fonts() {
-        match std::fs::read(&asset.path) {
-            Ok(bytes) => fonts.push((key.clone(), asset.path.display().to_string(), bytes)),
-            Err(error) => {
-                return fail(&format!(
-                    "{path}: font_{key}: {}: {error}",
-                    asset.path.display()
-                ));
-            }
-        }
-    }
+    let files = read_assets(&path, "font", program.fonts())
+        .and_then(|fonts| Ok((fonts, read_assets(&path, "icon", program.icons())?)));
+    let (fonts, icons) = match files {
+        Ok(read) => read,
+        Err(message) => return fail(&message),
+    };
     let conf = Conf {
         window_title: path,
         window_width: i32::try_from(settings.gfx_width).unwrap_or(i32::MAX),
         window_height: i32::try_from(settings.gfx_height).unwrap_or(i32::MAX),
         ..Conf::default()
     };
-    macroquad::Window::from_config(conf, run(program, fonts));
+    macroquad::Window::from_config(conf, run(program, fonts, icons));
     ExitCode::FAILURE
 }
 
-async fn run(program: Program, font_files: Vec<(String, String, Vec<u8>)>) {
-    let fonts = match draw::Fonts::load(program.path(), &font_files) {
-        Ok(fonts) => fonts,
+async fn run(
+    program: Program,
+    fonts: Vec<(String, String, Vec<u8>)>,
+    icons: Vec<(String, String, Vec<u8>)>,
+) {
+    let assets = match draw::Assets::load(program.path(), &fonts, &icons) {
+        Ok(assets) => assets,
         Err(message) => {
             eprintln!("{message}");
             std::process::exit(1);
@@ -155,7 +169,7 @@ async fn run(program: Program, font_files: Vec<(String, String, Vec<u8>)>) {
         match received.recv() {
             Ok(Event::Info(text)) => print!("{text}"),
             Ok(Event::Frame(scene)) => {
-                draw::scene(&scene, &fonts);
+                draw::scene(&scene, &assets);
                 next_frame().await;
                 let now = Instant::now();
                 if now < next_frame_time {

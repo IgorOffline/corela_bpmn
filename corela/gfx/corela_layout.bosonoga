@@ -1,19 +1,26 @@
 // corela_layout.bosonoga
 //
-// Where the board and its labels are drawn.
+// Where the board and the text are drawn.
 
 pub const hex_size is 32d0_f32
 pub const hex_tile_inset is 2d0_f32
+pub const marker_outer_radius is 15d75_f32
+pub const marker_inner_radius is 14d25_f32
 const column_spacing is 1d5_f32
 const row_spacing is 1d7320508_f32
 const origin_x is 576d0_f32
 const origin_y is 324d0_f32
 
+pub const text_x is 16d0_f32
 pub const text_size is 27d6_f32
+pub const header_baseline is 30d0_f32
+pub const mode_baseline is 604d0_f32
+pub const footer_baseline is 627d0_f32
 pub const label_half_width is 12d28_f32
 pub const label_ascent is 14d0_f32
 pub const label_height is 14d0_f32
 pub const label_dipping_height is 15d0_f32
+pub const arrow_step is 0d785398163_f32
 
 // The letter of each column from q = -4, and whether it reaches
 // below the baseline.

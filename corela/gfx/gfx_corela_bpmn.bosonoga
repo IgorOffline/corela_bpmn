@@ -4,13 +4,23 @@
 
 mod "corela_board.bosonoga"_str
 mod "corela_layout.bosonoga"_str
+mod "corela_input_mode.bosonoga"_str
+mod "corela_history.bosonoga"_str
 
 const frames_per_second is 60_u32
 
 bosonoga_global
 di
+  var region is center_region
   var selected_q is 0_i32
   var selected_r is 0_i32
+  var cells is array 0_i32 with_len_col all_cells
+  var past is array 0_i32 with_len_col history_values
+  var future is array 0_i32 with_len_col history_values
+  var past_count is 0_i32
+  var future_count is 0_i32
+  var action is 1_i32
+  var mode is mode_none
   var any_key_pressed is false_bool
   var closing is false_bool
   var dark is true_bool
@@ -23,6 +33,11 @@ mod "corela_render.bosonoga"_str
 // idle_close_ms of [global], or never if that is 0.
 gfx_main
 di
+  if global_replay_last_action ge history_boards
+  di
+    info "core: replay_last_action_must_be_below_"_str history_boards
+    return exit_failure
+  do
   var idle_close_frames is global_idle_close_ms
   set idle_close_frames to_multiply idle_close_frames frames_per_second
   set idle_close_frames to_divide idle_close_frames 1000_u32

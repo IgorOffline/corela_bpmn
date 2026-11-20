@@ -1,10 +1,14 @@
 use bosonoga::gfx::{Horizontal, Scene, Shape, Vertical};
 use macroquad::color::Color;
+use macroquad::prelude::ImageFormat;
 use macroquad::shapes::{draw_poly, draw_rectangle};
 use macroquad::text::{Font, TextParams, draw_text_ex, load_ttf_font_from_bytes, measure_text};
+use macroquad::texture::{DrawTextureParams, Image, Texture2D, draw_texture_ex};
 use macroquad::window::clear_background;
 
 const HEX_CORNERS: u8 = 6;
+const ICON_SIDE_MAX: u32 = 1024;
+const PNG_SIGNATURE: [u8; 8] = [0x89, b'P', b'N', b'G', b'\r', b'\n', 0x1A, b'\n'];
 // Enough that a circle of corela's size looks round.
 const CIRCLE_CORNERS: u8 = 48;
 
@@ -17,9 +21,12 @@ struct Typeface {
     descender: f32,
 }
 
-pub(crate) struct Fonts {
+pub(crate) struct Assets {
     typefaces: Vec<Typeface>,
+    icons: Vec<Texture2D>,
 }
+
+pub(crate) type Files = [(String, String, Vec<u8>)];
 
 fn read_u16(bytes: &[u8], at: usize) -> Option<u16> {
     Some(u16::from_be_bytes([*bytes.get(at)?, *bytes.get(at + 1)?]))
@@ -52,13 +59,38 @@ fn metrics(bytes: &[u8]) -> Option<(f32, f32, f32)> {
     (units > 0.0 && ascender > descender).then_some((units, ascender, descender))
 }
 
-impl Fonts {
-    pub(crate) fn load(
-        program: &str,
-        files: &[(String, String, Vec<u8>)],
-    ) -> Result<Fonts, String> {
+// The width and the height of the header of a PNG, which is checked first so
+// that a large one is not decoded.
+fn png_size(bytes: &[u8]) -> Option<(u32, u32)> {
+    (bytes.get(..8)? == PNG_SIGNATURE.as_slice() && bytes.get(12..16)? == b"IHDR".as_slice())
+        .then_some(())?;
+    Some((read_u32(bytes, 16)?, read_u32(bytes, 20)?))
+}
+
+// Only its alpha is kept, over white, so that the color of gfx_draw_icon tints
+// it without dark edges where it is filtered.
+fn icon(program: &str, key: &str, path: &str, bytes: &[u8]) -> Result<Texture2D, String> {
+    let prefix = format!("{program}: icon_{key}: {path}");
+    let (width, height) = png_size(bytes).ok_or_else(|| format!("{prefix} is not a PNG image"))?;
+    if width > ICON_SIDE_MAX || height > ICON_SIDE_MAX {
+        return Err(format!(
+            "{prefix} is {width} by {height} pixels, more than {ICON_SIDE_MAX} a side"
+        ));
+    }
+    let mut image = Image::from_file_with_format(bytes, Some(ImageFormat::Png))
+        .map_err(|error| format!("{prefix} is not a PNG image: {error}"))?;
+    for [red, green, blue, _] in image.bytes.as_chunks_mut::<4>().0 {
+        *red = u8::MAX;
+        *green = u8::MAX;
+        *blue = u8::MAX;
+    }
+    Ok(Texture2D::from_image(&image))
+}
+
+impl Assets {
+    pub(crate) fn load(program: &str, fonts: &Files, icons: &Files) -> Result<Assets, String> {
         let mut typefaces = Vec::new();
-        for (key, path, bytes) in files {
+        for (key, path, bytes) in fonts {
             let not_truetype = || format!("{program}: font_{key}: {path} is not a TrueType font");
             let (units, ascender, descender) = metrics(bytes).ok_or_else(not_truetype)?;
             let font = load_ttf_font_from_bytes(bytes).map_err(|_| not_truetype())?;
@@ -70,7 +102,14 @@ impl Fonts {
                 descender: descender / height,
             });
         }
-        Ok(Fonts { typefaces })
+        let mut textures = Vec::new();
+        for (key, path, bytes) in icons {
+            textures.push(icon(program, key, path, bytes)?);
+        }
+        Ok(Assets {
+            typefaces,
+            icons: textures,
+        })
     }
 }
 
@@ -89,7 +128,7 @@ fn font_size(pixels: f32) -> u16 {
     pixels.round().clamp(1.0, f32::from(u16::MAX)) as u16
 }
 
-pub(crate) fn scene(scene: &Scene, fonts: &Fonts) {
+pub(crate) fn scene(scene: &Scene, assets: &Assets) {
     clear_background(color(scene.clear));
     for shape in &scene.shapes {
         match shape {
@@ -112,6 +151,29 @@ pub(crate) fn scene(scene: &Scene, fonts: &Fonts) {
                 radius,
                 color: rgb,
             } => draw_poly(*x, *y, CIRCLE_CORNERS, *radius, 0.0, color(*rgb)),
+            Shape::Icon {
+                x,
+                y,
+                icon,
+                angle,
+                color: rgb,
+            } => {
+                let Some(texture) = assets.icons.get(*icon) else {
+                    continue;
+                };
+                let half_width = texture.width() / 2.0;
+                let half_height = texture.height() / 2.0;
+                draw_texture_ex(
+                    texture,
+                    (x - half_width).round(),
+                    (y - half_height).round(),
+                    color(*rgb),
+                    DrawTextureParams {
+                        rotation: *angle,
+                        ..DrawTextureParams::default()
+                    },
+                );
+            }
             Shape::Text {
                 x,
                 y,
@@ -121,7 +183,7 @@ pub(crate) fn scene(scene: &Scene, fonts: &Fonts) {
                 align,
                 text,
             } => {
-                let Some(typeface) = fonts.typefaces.get(*font) else {
+                let Some(typeface) = assets.typefaces.get(*font) else {
                     continue;
                 };
                 let em = size * typeface.em_per_height;
