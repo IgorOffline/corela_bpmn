@@ -1,4 +1,4 @@
-use bosonoga::gfx::{Horizontal, Scene, Shape, Vertical};
+use bosonoga::gfx::{Align, Horizontal, Scene, Shape, Vertical};
 use macroquad::color::Color;
 use macroquad::prelude::ImageFormat;
 use macroquad::shapes::{draw_poly, draw_rectangle};
@@ -43,10 +43,14 @@ fn read_u32(bytes: &[u8], at: usize) -> Option<u32> {
 
 fn table(bytes: &[u8], tag: [u8; 4]) -> Option<usize> {
     let count = usize::from(read_u16(bytes, 4)?);
-    (0..count)
-        .map(|i| 12 + 16 * i)
-        .find(|entry| bytes.get(*entry..entry + 4) == Some(tag.as_slice()))
-        .and_then(|entry| usize::try_from(read_u32(bytes, entry + 8)?).ok())
+    for index in 0..count {
+        let entry = 12 + 16 * index;
+        if bytes.get(entry..entry + 4) == Some(tag.as_slice()) {
+            let offset = read_u32(bytes, entry + 8)?;
+            return usize::try_from(offset).ok();
+        }
+    }
+    None
 }
 
 // The units per em of head, and the ascender and descender of hhea.
@@ -56,33 +60,44 @@ fn metrics(bytes: &[u8]) -> Option<(f32, f32, f32)> {
     let units = f32::from(read_u16(bytes, head + 18)?);
     let ascender = f32::from(i16::from_be_bytes(read_u16(bytes, hhea + 4)?.to_be_bytes()));
     let descender = f32::from(i16::from_be_bytes(read_u16(bytes, hhea + 6)?.to_be_bytes()));
-    (units > 0.0 && ascender > descender).then_some((units, ascender, descender))
+    if units <= 0.0 || ascender <= descender {
+        return None;
+    }
+    Some((units, ascender, descender))
 }
 
 // The width and the height of the header of a PNG, which is checked first so
 // that a large one is not decoded.
 fn png_size(bytes: &[u8]) -> Option<(u32, u32)> {
-    (bytes.get(..8)? == PNG_SIGNATURE.as_slice() && bytes.get(12..16)? == b"IHDR".as_slice())
-        .then_some(())?;
-    Some((read_u32(bytes, 16)?, read_u32(bytes, 20)?))
+    if bytes.get(..8)? != PNG_SIGNATURE.as_slice() || bytes.get(12..16)? != b"IHDR".as_slice() {
+        return None;
+    }
+    let width = read_u32(bytes, 16)?;
+    let height = read_u32(bytes, 20)?;
+    Some((width, height))
 }
 
 // Only its alpha is kept, over white, so that the color of gfx_draw_icon tints
 // it without dark edges where it is filtered.
 fn icon(program: &str, key: &str, path: &str, bytes: &[u8]) -> Result<Texture2D, String> {
     let prefix = format!("{program}: icon_{key}: {path}");
-    let (width, height) = png_size(bytes).ok_or_else(|| format!("{prefix} is not a PNG image"))?;
+    let Some((width, height)) = png_size(bytes) else {
+        return Err(format!("{prefix} is not a PNG image"));
+    };
     if width > ICON_SIDE_MAX || height > ICON_SIDE_MAX {
         return Err(format!(
             "{prefix} is {width} by {height} pixels, more than {ICON_SIDE_MAX} a side"
         ));
     }
-    let mut image = Image::from_file_with_format(bytes, Some(ImageFormat::Png))
-        .map_err(|error| format!("{prefix} is not a PNG image: {error}"))?;
-    for [red, green, blue, _] in image.bytes.as_chunks_mut::<4>().0 {
-        *red = u8::MAX;
-        *green = u8::MAX;
-        *blue = u8::MAX;
+    let mut image = match Image::from_file_with_format(bytes, Some(ImageFormat::Png)) {
+        Ok(image) => image,
+        Err(error) => return Err(format!("{prefix} is not a PNG image: {error}")),
+    };
+    let (pixels, _) = image.bytes.as_chunks_mut::<4>();
+    for pixel in pixels {
+        pixel[0] = u8::MAX;
+        pixel[1] = u8::MAX;
+        pixel[2] = u8::MAX;
     }
     Ok(Texture2D::from_image(&image))
 }
@@ -91,9 +106,13 @@ impl Assets {
     pub(crate) fn load(program: &str, fonts: &Files, icons: &Files) -> Result<Assets, String> {
         let mut typefaces = Vec::new();
         for (key, path, bytes) in fonts {
-            let not_truetype = || format!("{program}: font_{key}: {path} is not a TrueType font");
-            let (units, ascender, descender) = metrics(bytes).ok_or_else(not_truetype)?;
-            let font = load_ttf_font_from_bytes(bytes).map_err(|_| not_truetype())?;
+            let not_truetype = format!("{program}: font_{key}: {path} is not a TrueType font");
+            let Some((units, ascender, descender)) = metrics(bytes) else {
+                return Err(not_truetype);
+            };
+            let Ok(font) = load_ttf_font_from_bytes(bytes) else {
+                return Err(not_truetype);
+            };
             let height = ascender - descender;
             typefaces.push(Typeface {
                 font,
@@ -158,21 +177,9 @@ pub(crate) fn scene(scene: &Scene, assets: &Assets) {
                 angle,
                 color: rgb,
             } => {
-                let Some(texture) = assets.icons.get(*icon) else {
-                    continue;
-                };
-                let half_width = texture.width() / 2.0;
-                let half_height = texture.height() / 2.0;
-                draw_texture_ex(
-                    texture,
-                    (x - half_width).round(),
-                    (y - half_height).round(),
-                    color(*rgb),
-                    DrawTextureParams {
-                        rotation: *angle,
-                        ..DrawTextureParams::default()
-                    },
-                );
+                if let Some(texture) = assets.icons.get(*icon) {
+                    draw_icon(texture, *x, *y, *angle, *rgb);
+                }
             }
             Shape::Text {
                 x,
@@ -183,37 +190,63 @@ pub(crate) fn scene(scene: &Scene, assets: &Assets) {
                 align,
                 text,
             } => {
-                let Some(typeface) = assets.typefaces.get(*font) else {
-                    continue;
-                };
-                let em = size * typeface.em_per_height;
-                let rasterized = font_size(em);
-                let scale = em / f32::from(rasterized);
-                let width = measure_text(text, Some(&typeface.font), rasterized, scale).width;
-                let left = match align.horizontal {
-                    Horizontal::Left => *x,
-                    Horizontal::Center => x - width / 2.0,
-                    Horizontal::Right => x - width,
-                };
-                let baseline = match align.vertical {
-                    Vertical::Baseline => *y,
-                    Vertical::Top => y + size * typeface.ascender,
-                    Vertical::Middle => y + size * (typeface.ascender + typeface.descender) / 2.0,
-                    Vertical::Bottom => y + size * typeface.descender,
-                };
-                draw_text_ex(
-                    text,
-                    left,
-                    baseline,
-                    TextParams {
-                        font: Some(&typeface.font),
-                        font_size: rasterized,
-                        font_scale: scale,
-                        color: color(*rgb),
-                        ..TextParams::default()
-                    },
-                );
+                if let Some(typeface) = assets.typefaces.get(*font) {
+                    draw_aligned_text(typeface, text, *x, *y, *size, *rgb, *align);
+                }
             }
         }
     }
+}
+
+fn draw_icon(texture: &Texture2D, x: f32, y: f32, angle: f32, rgb: u32) {
+    let half_width = texture.width() / 2.0;
+    let half_height = texture.height() / 2.0;
+    draw_texture_ex(
+        texture,
+        (x - half_width).round(),
+        (y - half_height).round(),
+        color(rgb),
+        DrawTextureParams {
+            rotation: angle,
+            ..DrawTextureParams::default()
+        },
+    );
+}
+
+fn draw_aligned_text(
+    typeface: &Typeface,
+    text: &str,
+    x: f32,
+    y: f32,
+    size: f32,
+    rgb: u32,
+    align: Align,
+) {
+    let em = size * typeface.em_per_height;
+    let rasterized = font_size(em);
+    let scale = em / f32::from(rasterized);
+    let width = measure_text(text, Some(&typeface.font), rasterized, scale).width;
+    let left = match align.horizontal {
+        Horizontal::Left => x,
+        Horizontal::Center => x - width / 2.0,
+        Horizontal::Right => x - width,
+    };
+    let baseline = match align.vertical {
+        Vertical::Baseline => y,
+        Vertical::Top => y + size * typeface.ascender,
+        Vertical::Middle => y + size * (typeface.ascender + typeface.descender) / 2.0,
+        Vertical::Bottom => y + size * typeface.descender,
+    };
+    draw_text_ex(
+        text,
+        left,
+        baseline,
+        TextParams {
+            font: Some(&typeface.font),
+            font_size: rasterized,
+            font_scale: scale,
+            color: color(rgb),
+            ..TextParams::default()
+        },
+    );
 }

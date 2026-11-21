@@ -13,7 +13,7 @@ di
   set next_action to_add next_action 1_i32
   val shown_next is math_to_min next_action last
   var done is false_bool
-  if action gt last
+  if closing or playback_count gt 0_i32 or save_requested or load_requested
   di
     set done to true_bool
   do
@@ -56,11 +56,11 @@ di
   if not done and gfx_key eq key_run
   di
     set done to true_bool
-    if mode eq mode_undo
+    if mode eq mode_undo and action le last
     di
       set command to command_undo
     do
-    else if mode eq mode_redo
+    else if mode eq mode_redo and action le last
     di
       set command to command_redo
     do
@@ -72,17 +72,15 @@ di
       do
       else
       di
-        info "core: replay_not_saved: saving_needs_file_io_in_bosonoga"_str
+        set save_requested to true_bool
       do
     do
     else if mode eq mode_load
     di
-      info "core: replay_not_loaded: loading_needs_file_io_in_bosonoga"_str
-      info "core: action_"_str shown "_of_"_str last ": quit"_str
-      set closing to true_bool
+      set load_requested to true_bool
     do
   do
-  if not done and mode eq mode_input
+  if not done and mode eq mode_input and action le last
   di
     if gfx_key eq key_start
     di
@@ -131,6 +129,7 @@ di
   do
 
   var recorded is false_bool
+  var note is ""_str
   if command eq command_undo
   di
     if past_count eq 0_i32
@@ -176,7 +175,7 @@ di
       set base to_add base 1_i32
       set selected_r to past at base with ret 0_i32
       set recorded to true_bool
-      info "core: action_"_str shown_next "_of_"_str last ": undo_"_str past_count "_more_to_undo_"_str future_count "_to_redo"_str
+      set note to_join "undo_"_str past_count "_more_to_undo_"_str future_count "_to_redo"_str
     do
   do
   else if command eq command_redo
@@ -224,7 +223,7 @@ di
       set base to_add base 1_i32
       set selected_r to future at base with ret 0_i32
       set recorded to true_bool
-      info "core: action_"_str shown_next "_of_"_str last ": redo_"_str past_count "_to_undo_"_str future_count "_more_to_redo"_str
+      set note to_join "redo_"_str past_count "_to_undo_"_str future_count "_more_to_redo"_str
     do
   do
   else if command not_eq no_command
@@ -260,14 +259,14 @@ di
         set region to north_region
         set selected_r to north_gate_r
         set recorded to true_bool
-        info "core: action_"_str shown_next "_of_"_str last ": entered_north_region"_str
+        set note to_join "entered_north_region"_str
       do
       else if region eq north_region and q eq gate_q and r eq north_gate_r and dq eq 0_i32 and dr eq 1_i32
       di
         set region to center_region
         set selected_r to center_gate_r
         set recorded to true_bool
-        info "core: action_"_str shown_next "_of_"_str last ": entered_center_region"_str
+        set note to_join "entered_center_region"_str
       do
       else
       di
@@ -281,7 +280,7 @@ di
           set selected_q to to_q
           set selected_r to to_r
           set recorded to true_bool
-          info "core: action_"_str shown_next "_of_"_str last ": selected_"_str to_q "_"_str to_r
+          set note to_join "selected_"_str to_q "_"_str to_r
         do
         else
         di
@@ -314,7 +313,7 @@ di
       di
         set cells at here to start_node
         set recorded to true_bool
-        info "core: action_"_str shown_next "_of_"_str last ": placed_start_node_at_"_str q "_"_str r
+        set note to_join "placed_start_node_at_"_str q "_"_str r
       do
     do
     else if command eq command_arrow
@@ -327,7 +326,7 @@ di
       di
         set cells at here to 1_i32
         set recorded to true_bool
-        info "core: action_"_str shown_next "_of_"_str last ": placed_arrow_at_"_str q "_"_str r
+        set note to_join "placed_arrow_at_"_str q "_"_str r
       do
       else
       di
@@ -338,7 +337,7 @@ di
         set stored to_add turned 1_i32
         set cells at here to stored
         set recorded to true_bool
-        info "core: action_"_str shown_next "_of_"_str last ": turned_arrow_at_"_str q "_"_str r "_to_"_str turned
+        set note to_join "turned_arrow_at_"_str q "_"_str r "_to_"_str turned
       do
     do
     else if command eq command_remove
@@ -351,7 +350,7 @@ di
       di
         set cells at here to no_node
         set recorded to true_bool
-        info "core: action_"_str shown_next "_of_"_str last ": removed_node_at_"_str q "_"_str r
+        set note to_join "removed_node_at_"_str q "_"_str r
       do
     do
     if recorded
@@ -363,12 +362,25 @@ di
 
   if recorded
   di
+    info "core: action_"_str shown_next "_of_"_str last ": "_str note
+    var digits is ""_str
+    var cell_index is 0_i32
+    while cell_index lt all_cells
+    di
+      val cell_value is cells at cell_index with ret 0_i32
+      set digits to_join digits cell_value
+      set cell_index to_add cell_index 1_i32
+    do
+    xml_escape note with ret 1_str as escaped_note
+    di
+      set replay_body to_join replay_body "<action number='"_str action "' command='"_str command
+        "' dq='"_str dq "' dr='"_str dr "' region='"_str region "' q='"_str selected_q "' r='"_str selected_r
+        "' undo='"_str past_count "' redo='"_str future_count "' note='"_str escaped_note "' cells='"_str digits "'/>"_str
+    do
     set action to next_action
     if action gt last
     di
-      info "core: replay_not_saved: saving_needs_file_io_in_bosonoga"_str
-      info "core: action_"_str shown_next "_of_"_str last ": quit"_str
-      set closing to true_bool
+      set save_requested to true_bool
     do
   do
 do

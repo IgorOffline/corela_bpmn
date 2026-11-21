@@ -32,8 +32,13 @@ di
   gfx_draw_text left baseline text_x footer_baseline font_label text_size label_text region_name
   val mode_name is mode_names at mode with ret 0_str
   gfx_draw_text left baseline text_x mode_baseline font_label text_size label_text "Mode: "_str mode_name
-  val shown_action is math_to_min action global_replay_last_action
-  gfx_draw_text left baseline text_x header_baseline font_label text_size label_text "Action "_str shown_action " / "_str global_replay_last_action
+  var last_action is global_replay_last_action
+  if playback_count gt 0_i32
+  di
+    set last_action to playback_count
+  do
+  val shown_action is math_to_min action last_action
+  gfx_draw_text left baseline text_x header_baseline font_label text_size label_text "Action "_str shown_action " / "_str last_action
   var radius is hex_size
   set radius to_subtract radius hex_tile_inset
   // A board of radius 4 has the columns q = -4 to 4, and so the rows.

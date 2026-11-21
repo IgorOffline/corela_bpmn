@@ -38,8 +38,10 @@ impl Window for Channel {
     }
 
     fn show(&mut self, scene: &Scene) -> Option<Input> {
-        self.events.send(Event::Frame(scene.clone())).ok()?;
-        self.inputs.recv().ok().flatten()
+        if self.events.send(Event::Frame(scene.clone())).is_err() {
+            return None;
+        }
+        self.inputs.recv().unwrap_or(None)
     }
 }
 
@@ -54,7 +56,10 @@ impl EventHandler for Keys {
     fn draw(&mut self) {}
 
     fn key_down_event(&mut self, keycode: KeyCode, _: KeyMods, repeat: bool) {
-        if let (false, Some(code)) = (repeat, keys::code(keycode)) {
+        if repeat {
+            return;
+        }
+        if let Some(code) = keys::code(keycode) {
             self.pressed.push(code);
         }
     }
@@ -77,22 +82,23 @@ fn read_assets(
     group: &str,
     assets: &[(String, Asset)],
 ) -> Result<Vec<(String, String, Vec<u8>)>, String> {
-    assets
-        .iter()
-        .map(|(key, asset)| {
-            let shown = asset.path.display().to_string();
-            std::fs::read(&asset.path)
-                .map(|bytes| (key.clone(), shown.clone(), bytes))
-                .map_err(|error| format!("{path}: {group}_{key}: {shown}: {error}"))
-        })
-        .collect()
+    let mut files = Vec::new();
+    for (key, asset) in assets {
+        let shown = asset.path.display().to_string();
+        match std::fs::read(&asset.path) {
+            Ok(bytes) => files.push((key.clone(), shown, bytes)),
+            Err(error) => return Err(format!("{path}: {group}_{key}: {shown}: {error}")),
+        }
+    }
+    Ok(files)
 }
 
 fn main() -> ExitCode {
     let mut arguments = std::env::args().skip(1);
-    let path = arguments
-        .next()
-        .unwrap_or_else(|| DEFAULT_PROGRAM.to_owned());
+    let mut path = DEFAULT_PROGRAM.to_owned();
+    if let Some(given) = arguments.next() {
+        path = given;
+    }
     if arguments.next().is_some() {
         return fail("usage: corela_bpmn [FILE]");
     }
@@ -115,10 +121,12 @@ fn main() -> ExitCode {
     if !program.is_gfx() {
         return fail(&format!("{path}: a gfx app needs gfx_main"));
     }
-    let files = read_assets(&path, "font", program.fonts())
-        .and_then(|fonts| Ok((fonts, read_assets(&path, "icon", program.icons())?)));
-    let (fonts, icons) = match files {
-        Ok(read) => read,
+    let fonts = match read_assets(&path, "font", program.fonts()) {
+        Ok(fonts) => fonts,
+        Err(message) => return fail(&message),
+    };
+    let icons = match read_assets(&path, "icon", program.icons()) {
+        Ok(icons) => icons,
         Err(message) => return fail(&message),
     };
     let conf = Conf {
@@ -162,33 +170,23 @@ async fn run(
         eprintln!("cannot start the interpreter: {error}");
         std::process::exit(1);
     }
-    let mut keys = Keys::default();
-    let mut next_frame_time = Instant::now();
-    let mut last_frame_start: Option<Instant> = None;
+    let mut pacer = Pacer {
+        keys: Keys::default(),
+        next_frame_time: Instant::now(),
+        last_frame_start: None,
+    };
     loop {
         match received.recv() {
             Ok(Event::Info(text)) => print!("{text}"),
             Ok(Event::Frame(scene)) => {
                 draw::scene(&scene, &assets);
                 next_frame().await;
-                let now = Instant::now();
-                if now < next_frame_time {
-                    thread::sleep(next_frame_time - now);
-                    next_frame_time += FRAME_TIME;
+                let input = pacer.wait(subscriber);
+                if is_quit_requested() {
+                    let _ = inputs.send(None);
                 } else {
-                    next_frame_time = now + FRAME_TIME;
+                    let _ = inputs.send(Some(input));
                 }
-                let start = Instant::now();
-                let delta_time = last_frame_start
-                    .map_or(FRAME_TIME, |last| start - last)
-                    .as_secs_f32();
-                last_frame_start = Some(start);
-                repeat_all_miniquad_input(&mut keys, subscriber);
-                let input = Input {
-                    keys: std::mem::take(&mut keys.pressed),
-                    delta_time,
-                };
-                let _ = inputs.send((!is_quit_requested()).then_some(input));
             }
             Ok(Event::Done(Ok(status))) => std::process::exit(exit_code(status).into()),
             Ok(Event::Done(Err(message))) => {
@@ -199,6 +197,35 @@ async fn run(
                 eprintln!("the interpreter stopped without a result");
                 std::process::exit(1);
             }
+        }
+    }
+}
+
+struct Pacer {
+    keys: Keys,
+    next_frame_time: Instant,
+    last_frame_start: Option<Instant>,
+}
+
+impl Pacer {
+    fn wait(&mut self, subscriber: usize) -> Input {
+        let now = Instant::now();
+        if now < self.next_frame_time {
+            thread::sleep(self.next_frame_time - now);
+            self.next_frame_time += FRAME_TIME;
+        } else {
+            self.next_frame_time = now + FRAME_TIME;
+        }
+        let start = Instant::now();
+        let elapsed = match self.last_frame_start {
+            Some(last) => start - last,
+            None => FRAME_TIME,
+        };
+        self.last_frame_start = Some(start);
+        repeat_all_miniquad_input(&mut self.keys, subscriber);
+        Input {
+            keys: std::mem::take(&mut self.keys.pressed),
+            delta_time: elapsed.as_secs_f32(),
         }
     }
 }

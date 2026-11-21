@@ -8,8 +8,12 @@ pub(crate) fn code(keycode: KeyCode) -> Option<u32> {
     let mut name = String::from("SAPP_KEYCODE_");
     let mut previous: Option<char> = None;
     for letter in word.chars() {
-        let starts_word = letter.is_ascii_uppercase()
-            || (letter.is_ascii_digit() && previous.is_some_and(|p| p.is_ascii_lowercase()));
+        let after_lowercase = match previous {
+            Some(before) => before.is_ascii_lowercase(),
+            None => false,
+        };
+        let starts_word =
+            letter.is_ascii_uppercase() || (letter.is_ascii_digit() && after_lowercase);
         if starts_word && previous.is_some() {
             name.push('_');
         }

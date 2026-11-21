@@ -6,6 +6,7 @@ mod "corela_board.bosonoga"_str
 mod "corela_layout.bosonoga"_str
 mod "corela_input_mode.bosonoga"_str
 mod "corela_history.bosonoga"_str
+mod "corela_replay.bosonoga"_str
 
 const frames_per_second is 60_u32
 
@@ -24,6 +25,11 @@ di
   var any_key_pressed is false_bool
   var closing is false_bool
   var dark is true_bool
+  var replay_body is ""_str
+  var save_requested is false_bool
+  var load_requested is false_bool
+  var playback is array 0_str with_len_col history_boards
+  var playback_count is 0_i32
 do
 
 mod "corela_input.bosonoga"_str
@@ -33,18 +39,154 @@ mod "corela_render.bosonoga"_str
 // idle_close_ms of [global], or never if that is 0.
 gfx_main
 di
-  if global_replay_last_action ge history_boards
+  if global_replay_last_action lt 1_i32 or global_replay_last_action ge history_boards
   di
-    info "core: replay_last_action_must_be_below_"_str history_boards
+    info "core: replay_last_action_must_be_positive_and_below_"_str history_boards
     return exit_failure
   do
   var idle_close_frames is global_idle_close_ms
   set idle_close_frames to_multiply idle_close_frames frames_per_second
   set idle_close_frames to_divide idle_close_frames 1000_u32
   var waited_frames is 0_u32
+  var playback_index is 0_i32
+  var playback_delay is 0_i32
   while not closing
   di
     gfx_await_next_frame
+    if save_requested
+    di
+      var count is action
+      set count to_subtract count 1_i32
+      val saved is replay_save_fn of replay_body count with ret 0_bool
+      set save_requested to false_bool
+      if action gt global_replay_last_action
+      di
+        if saved
+        di
+          info "core: action_"_str global_replay_last_action "_of_"_str global_replay_last_action ": quit"_str
+          set closing to true_bool
+        do
+        else
+        di
+          set mode to mode_save
+        do
+      do
+    do
+    if load_requested
+    di
+      io_latest dir_replay "replay_"_str ".xml"_str with ret 0_bool as found 1_str as filename 2_str as lookup_reason 3_bool as missing_replay
+      di
+        if found
+        di
+          io_read dir_replay filename with ret 0_bool as read_ok 1_str as document 2_str as read_reason
+          di
+            if read_ok
+            di
+              val format is replay_number_fn of document "format"_str with ret 0_i32
+              val count is replay_number_fn of document "count"_str with ret 0_i32
+              var valid is false_bool
+              var root is ""_str
+              xml_name document with ret 1_str as name
+              di
+                set root to name
+              do
+              if root eq "replay"_str and format eq 1_i32 and count gt 0_i32 and count lt history_boards
+              di
+                set valid to true_bool
+                var index is 0_i32
+                while valid and index lt count
+                di
+                  xml_child document ""_str index with ret 0_bool as found_action 1_str as entry
+                  di
+                    var number is index
+                    set number to_add number 1_i32
+                    if found_action
+                    di
+                      set valid to replay_valid_action_fn of entry number with ret 0_bool
+                    do
+                    else
+                    di
+                      set valid to false_bool
+                    do
+                    if valid
+                    di
+                      set playback at index to entry
+                    do
+                  do
+                  set index to_add index 1_i32
+                do
+                xml_child document ""_str count with ret 0_bool as extra
+                di
+                  if extra
+                  di
+                    set valid to false_bool
+                  do
+                do
+              do
+              if valid
+              di
+                set playback_count to count
+                set mode to mode_load
+                info "core: replay_loaded: "_str filename
+              do
+              else
+              di
+                info "core: replay_not_loaded: invalid replay "_str filename
+              do
+            do
+            else
+            di
+              info "core: replay_not_loaded: "_str read_reason
+            do
+          do
+        do
+        else if missing_replay
+        di
+          info "core: no_replay_to_load"_str
+        do
+        else
+        di
+          info "core: replay_not_loaded: "_str lookup_reason
+        do
+      do
+      set load_requested to false_bool
+    do
+    if playback_count gt 0_i32
+    di
+      if playback_delay gt 0_i32
+      di
+        set playback_delay to_subtract playback_delay 1_i32
+      do
+      else if playback_index lt playback_count
+      di
+        val entry is playback at playback_index with ret 0_str
+        set region to replay_number_fn of entry "region"_str with ret 0_i32
+        set selected_q to replay_number_fn of entry "q"_str with ret 0_i32
+        set selected_r to replay_number_fn of entry "r"_str with ret 0_i32
+        val digits is replay_cells_fn of entry with ret 0_str
+        var index is 0_i32
+        while index lt all_cells
+        di
+          val digit is replay_digit_fn of digits index with ret 0_i32
+          set cells at index to digit
+          set index to_add index 1_i32
+        do
+        set playback_index to_add playback_index 1_i32
+        set action to playback_index
+        var replay_note is ""_str
+        xml_attribute entry "note"_str with ret 1_str as note
+        di
+          set replay_note to note
+        do
+        info "core: replay_action_"_str playback_index "_of_"_str playback_count ": "_str replay_note
+        set playback_delay to replay_interval_frames
+      do
+      else
+      di
+        info "core: replay_finished"_str
+        set closing to true_bool
+      do
+    do
     if not any_key_pressed and idle_close_frames gt 0_u32
     di
       set waited_frames to_add waited_frames 1_u32

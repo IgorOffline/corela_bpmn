@@ -6,8 +6,8 @@ pub const board_radius is 4_i32
 
 // The cells with q and r from -4 to 4, which hold the board,
 // as cell_fn numbers them.
-const board_side is 9_i32
-const board_cells is 81_i32
+pub const board_side is 9_i32
+pub const board_cells is 81_i32
 
 // A cell holds no_node, start_node, or an arrow as 1 more than its direction,
 // which turns clockwise in eighths from pointing right, as in corela. The cells

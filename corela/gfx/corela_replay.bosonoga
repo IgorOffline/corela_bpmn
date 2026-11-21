@@ -1,0 +1,164 @@
+// A replay records each resulting board independently of undo and redo.
+// Format 1 stores cell values as digits in cell_fn order.
+
+pub const replay_interval_frames is 30_i32
+
+pub def replay_number_fn document_str field_str ret 0_i32
+di
+  xml_attribute document_str field_str with ret 0_bool as found 1_str as text
+  di
+    if found
+    di
+      str_parse text with ret 0_bool as parsed 1_i32 as number
+      di
+        if parsed
+        di
+          return number
+        do
+      do
+    do
+  do
+  return -2147483648_i32
+do
+
+pub def replay_cells_fn document_str ret 0_str
+di
+  xml_attribute document_str "cells"_str with ret 1_str as text
+  di
+    return text
+  do
+do
+
+pub def replay_digit_fn text_str index_i32 ret 0_i32
+di
+  str_digit text_str index_i32 with ret 0_bool as found 1_i32 as digit
+  di
+    if found
+    di
+      return digit
+    do
+  do
+  return -1_i32
+do
+
+pub def replay_valid_action_fn document_str expected_i32 ret 0_bool
+di
+  xml_name document_str with ret 1_str as name
+  di
+    if name not_eq "action"_str
+    di
+      return false_bool
+    do
+  do
+  var minimum is 0_i32
+  set minimum to_subtract board_radius
+  val number is replay_number_fn of document_str "number"_str with ret 0_i32
+  val replay_region is replay_number_fn of document_str "region"_str with ret 0_i32
+  val q is replay_number_fn of document_str "q"_str with ret 0_i32
+  val r is replay_number_fn of document_str "r"_str with ret 0_i32
+  val command is replay_number_fn of document_str "command"_str with ret 0_i32
+  if number not_eq expected_i32 or replay_region lt center_region or replay_region gt north_region
+    or q lt minimum or q gt board_radius or r lt minimum or r gt board_radius
+    or command lt command_undo or command gt command_remove
+  di
+    return false_bool
+  do
+  val dq is replay_number_fn of document_str "dq"_str with ret 0_i32
+  val dr is replay_number_fn of document_str "dr"_str with ret 0_i32
+  val undo is replay_number_fn of document_str "undo"_str with ret 0_i32
+  val redo is replay_number_fn of document_str "redo"_str with ret 0_i32
+  if undo lt 0_i32 or undo gt number or redo lt 0_i32 or redo gt number
+  di
+    return false_bool
+  do
+  if command eq command_move
+  di
+    if dq lt -1_i32 or dq gt 1_i32 or dr lt -1_i32 or dr gt 1_i32 or dq eq dr
+    di
+      return false_bool
+    do
+  do
+  else if dq not_eq 0_i32 or dr not_eq 0_i32
+  di
+    return false_bool
+  do
+  xml_attribute document_str "note"_str with ret 0_bool as has_note
+  di
+    if not has_note
+    di
+      return false_bool
+    do
+  do
+  val valid_selection is in_bounds_fn of q r with ret 0_bool
+  if not valid_selection
+  di
+    return false_bool
+  do
+  val digits is replay_cells_fn of document_str with ret 0_str
+  var index is 0_i32
+  var has_start is false_bool
+  while index lt all_cells
+  di
+    val digit is replay_digit_fn of digits index with ret 0_i32
+    if digit lt no_node or digit gt start_node
+    di
+      return false_bool
+    do
+    if digit not_eq no_node
+    di
+      var column is index
+      set column to_mod column board_cells
+      set column to_divide column board_side
+      set column to_subtract column board_radius
+      var row_index is index
+      set row_index to_mod row_index board_side
+      set row_index to_subtract row_index board_radius
+      val inside is in_bounds_fn of column row_index with ret 0_bool
+      if not inside or digit eq start_node and has_start
+      di
+        return false_bool
+      do
+      if digit eq start_node
+      di
+        set has_start to true_bool
+      do
+    do
+    set index to_add index 1_i32
+  do
+  str_len digits with ret 1_i32 as length
+  di
+    if length eq all_cells
+    di
+      return true_bool
+    do
+  do
+  return false_bool
+do
+
+pub def replay_save_fn body_str count_i32 ret 0_bool
+di
+  var document is ""_str
+  set document to_join "<replay format='1' count='"_str count_i32 "'>"_str body_str "</replay>"_str
+  var sequence is 1000_i32
+  while sequence le 9999_i32
+  di
+    var filename is ""_str
+    set filename to_join "replay_"_str sequence ".xml"_str
+    io_write dir_replay filename document with ret 0_bool as saved 1_bool as taken 2_str as reason
+    di
+      if saved
+      di
+        info "core: replay_saved: "_str filename
+        return true_bool
+      do
+      if not taken
+      di
+        info "core: replay_not_saved: "_str reason
+        return false_bool
+      do
+    do
+    set sequence to_add sequence 1_i32
+  do
+  info "core: replay_not_saved: all replay names are taken"_str
+  return false_bool
+do
