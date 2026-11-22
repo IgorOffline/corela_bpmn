@@ -77,7 +77,7 @@ di
   var next_action is action
   set next_action to_add next_action 1_i32
   val shown_next is math_to_min next_action last
-  var command is none_optional_i32
+  var command is nihil_i32
   var dq is 0_i32
   var dr is 0_i32
   // Keys do nothing while the run closes, plays, saves or loads, and only
@@ -187,7 +187,7 @@ di
   do
 
   // The note of a command that succeeds, which records it.
-  var note is none_optional_str
+  var note is nihil_str
   if some command as chosen
   di
     if chosen eq command_undo

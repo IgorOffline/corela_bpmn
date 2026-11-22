@@ -20,7 +20,7 @@ di
       do
     do
   do
-  return none_optional_i32
+  return nihil_i32
 do
 
 // The number of an attribute, if it has one from minimum_i32 to maximum_i32.
@@ -34,7 +34,7 @@ di
       return found
     do
   do
-  return none_optional_i32
+  return nihil_i32
 do
 
 // Whether an action is the one numbered expected_i32, with a command and a
@@ -151,7 +151,7 @@ di
   di
     if name not_eq "replay"_str
     di
-      return none_optional_i32
+      return nihil_i32
     do
   do
   val format is replay_in_range_fn of document_str "format"_str 1_i32 1_i32 with ret 0_optional_i32
@@ -160,7 +160,7 @@ di
   val found_count is replay_in_range_fn of document_str "count"_str 1_i32 most with ret 0_optional_i32
   if not some format
   di
-    return none_optional_i32
+    return nihil_i32
   do
   if some found_count as count
   di
@@ -174,7 +174,7 @@ di
         val valid is replay_valid_action_fn of entry number with ret 0_bool
         if not found or not valid
         di
-          return none_optional_i32
+          return nihil_i32
         do
       do
       set index to_add index 1_i32
@@ -183,12 +183,12 @@ di
     di
       if extra
       di
-        return none_optional_i32
+        return nihil_i32
       do
     do
     return found_count
   do
-  return none_optional_i32
+  return nihil_i32
 do
 
 pub def replay_save_fn body_str count_i32 ret 0_bool
