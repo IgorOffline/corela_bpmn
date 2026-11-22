@@ -3,8 +3,8 @@
 
 pub const replay_interval_frames is 30_i32
 
-// The number of an attribute, if it has one, as Rust's Option<i32>.
-pub def replay_number_fn document_str field_str ret 0_bool 1_i32
+// The number of an attribute, if it has one.
+pub def replay_number_fn document_str field_str ret 0_optional_i32
 di
   xml_attribute document_str field_str with ret 0_bool as found 1_str as text
   di
@@ -14,25 +14,27 @@ di
       di
         if parsed
         di
-          return true_bool number
+          val present is to_optional_i32 number
+          return present
         do
       do
     do
   do
-  return false_bool 0_i32
+  return none_optional_i32
 do
 
-// Whether an attribute has a number from minimum_i32 to maximum_i32.
-pub def replay_in_range_fn document_str field_str minimum_i32 maximum_i32 ret 0_bool
+// The number of an attribute, if it has one from minimum_i32 to maximum_i32.
+pub def replay_in_range_fn document_str field_str minimum_i32 maximum_i32 ret 0_optional_i32
 di
-  call replay_number_fn of document_str field_str with ret 0_bool as found 1_i32 as number
+  val found is replay_number_fn of document_str field_str with ret 0_optional_i32
+  if some found as number
   di
-    if found and number ge minimum_i32 and number le maximum_i32
+    if number ge minimum_i32 and number le maximum_i32
     di
-      return true_bool
+      return found
     do
   do
-  return false_bool
+  return none_optional_i32
 do
 
 // Whether an action is the one numbered expected_i32, with a command and a
@@ -48,41 +50,41 @@ di
   do
   var minimum is 0_i32
   set minimum to_subtract board_radius
-  val valid_number is replay_in_range_fn of document_str "number"_str expected_i32 expected_i32 with ret 0_bool
-  val valid_command is replay_in_range_fn of document_str "command"_str command_undo command_remove with ret 0_bool
-  val valid_dq is replay_in_range_fn of document_str "dq"_str -1_i32 1_i32 with ret 0_bool
-  val valid_dr is replay_in_range_fn of document_str "dr"_str -1_i32 1_i32 with ret 0_bool
-  val valid_region is replay_in_range_fn of document_str "region"_str center_region north_region with ret 0_bool
-  val valid_q is replay_in_range_fn of document_str "q"_str minimum board_radius with ret 0_bool
-  val valid_r is replay_in_range_fn of document_str "r"_str minimum board_radius with ret 0_bool
-  val valid_undo is replay_in_range_fn of document_str "undo"_str 0_i32 expected_i32 with ret 0_bool
-  val valid_redo is replay_in_range_fn of document_str "redo"_str 0_i32 expected_i32 with ret 0_bool
-  if not valid_number or not valid_command or not valid_dq or not valid_dr or not valid_region
-    or not valid_q or not valid_r or not valid_undo or not valid_redo
+  val number is replay_in_range_fn of document_str "number"_str expected_i32 expected_i32 with ret 0_optional_i32
+  val command is replay_in_range_fn of document_str "command"_str command_undo command_remove with ret 0_optional_i32
+  val dq is replay_in_range_fn of document_str "dq"_str -1_i32 1_i32 with ret 0_optional_i32
+  val dr is replay_in_range_fn of document_str "dr"_str -1_i32 1_i32 with ret 0_optional_i32
+  val region is replay_in_range_fn of document_str "region"_str center_region north_region with ret 0_optional_i32
+  val q is replay_in_range_fn of document_str "q"_str minimum board_radius with ret 0_optional_i32
+  val r is replay_in_range_fn of document_str "r"_str minimum board_radius with ret 0_optional_i32
+  val undo is replay_in_range_fn of document_str "undo"_str 0_i32 expected_i32 with ret 0_optional_i32
+  val redo is replay_in_range_fn of document_str "redo"_str 0_i32 expected_i32 with ret 0_optional_i32
+  if not some number or not some command or not some dq or not some dr or not some region
+    or not some q or not some r or not some undo or not some redo
   di
     return false_bool
   do
-  // Each number is there, so only its value is taken.
-  call replay_number_fn of document_str "command"_str with ret 1_i32 as command
+  // Each number is there, so each some holds.
+  if some command as chosen
   di
-    call replay_number_fn of document_str "dq"_str with ret 1_i32 as dq
+    if some dq as step_q
     di
-      call replay_number_fn of document_str "dr"_str with ret 1_i32 as dr
+      if some dr as step_r
       di
-        if command eq command_move and dq eq dr
-        or command not_eq command_move and dq not_eq 0_i32
-        or command not_eq command_move and dr not_eq 0_i32
+        if chosen eq command_move and step_q eq step_r
+        or chosen not_eq command_move and step_q not_eq 0_i32
+        or chosen not_eq command_move and step_r not_eq 0_i32
         di
           return false_bool
         do
       do
     do
   do
-  call replay_number_fn of document_str "q"_str with ret 1_i32 as q
+  if some q as selected_column
   di
-    call replay_number_fn of document_str "r"_str with ret 1_i32 as r
+    if some r as selected_row
     di
-      val valid_selection is in_bounds_fn of q r with ret 0_bool
+      val valid_selection is in_bounds_fn of selected_column selected_row with ret 0_bool
       if not valid_selection
       di
         return false_bool
@@ -143,22 +145,25 @@ do
 
 // The number of actions of a replay of format 1, if each is valid and
 // numbered from 1, and there are fewer than history_boards.
-pub def replay_count_fn document_str ret 0_bool 1_i32
+pub def replay_count_fn document_str ret 0_optional_i32
 di
   xml_name document_str with ret 1_str as name
   di
     if name not_eq "replay"_str
     di
-      return false_bool 0_i32
+      return none_optional_i32
     do
   do
-  val valid_format is replay_in_range_fn of document_str "format"_str 1_i32 1_i32 with ret 0_bool
-  call replay_number_fn of document_str "count"_str with ret 0_bool as has_count 1_i32 as count
+  val format is replay_in_range_fn of document_str "format"_str 1_i32 1_i32 with ret 0_optional_i32
+  var most is history_boards
+  set most to_subtract most 1_i32
+  val found_count is replay_in_range_fn of document_str "count"_str 1_i32 most with ret 0_optional_i32
+  if not some format
   di
-    if not valid_format or not has_count or count lt 1_i32 or count ge history_boards
-    di
-      return false_bool 0_i32
-    do
+    return none_optional_i32
+  do
+  if some found_count as count
+  di
     var index is 0_i32
     while index lt count
     di
@@ -169,7 +174,7 @@ di
         val valid is replay_valid_action_fn of entry number with ret 0_bool
         if not found or not valid
         di
-          return false_bool 0_i32
+          return none_optional_i32
         do
       do
       set index to_add index 1_i32
@@ -178,11 +183,12 @@ di
     di
       if extra
       di
-        return false_bool 0_i32
+        return none_optional_i32
       do
     do
-    return true_bool count
+    return found_count
   do
+  return none_optional_i32
 do
 
 pub def replay_save_fn body_str count_i32 ret 0_bool

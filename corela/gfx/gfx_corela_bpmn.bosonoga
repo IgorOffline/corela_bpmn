@@ -82,27 +82,25 @@ di
           di
             if read_ok
             di
-              call replay_count_fn of document with ret 0_bool as valid 1_i32 as count
+              val replay_count is replay_count_fn of document with ret 0_optional_i32
+              if some replay_count as count
               di
-                if valid
+                var index is 0_i32
+                while index lt count
                 di
-                  var index is 0_i32
-                  while index lt count
+                  xml_child document ""_str index with ret 1_str as entry
                   di
-                    xml_child document ""_str index with ret 1_str as entry
-                    di
-                      set playback at index to entry
-                    do
-                    set index to_add index 1_i32
+                    set playback at index to entry
                   do
-                  set playback_count to count
-                  set mode to mode_load
-                  info "core: replay_loaded: "_str filename
+                  set index to_add index 1_i32
                 do
-                else
-                di
-                  info "core: replay_not_loaded: invalid replay "_str filename
-                do
+                set playback_count to count
+                set mode to mode_load
+                info "core: replay_loaded: "_str filename
+              do
+              else
+              di
+                info "core: replay_not_loaded: invalid replay "_str filename
               do
             do
             else
@@ -131,16 +129,19 @@ di
       else if playback_index lt playback_count
       di
         val entry is playback at playback_index with ret 0_str
-        // replay_count_fn found each value, so only the value is taken.
-        call replay_number_fn of entry "region"_str with ret 1_i32 as replay_region
+        // replay_count_fn found each value, so each some holds.
+        val found_region is replay_number_fn of entry "region"_str with ret 0_optional_i32
+        if some found_region as replay_region
         di
           set region to replay_region
         do
-        call replay_number_fn of entry "q"_str with ret 1_i32 as replay_q
+        val found_q is replay_number_fn of entry "q"_str with ret 0_optional_i32
+        if some found_q as replay_q
         di
           set selected_q to replay_q
         do
-        call replay_number_fn of entry "r"_str with ret 1_i32 as replay_r
+        val found_r is replay_number_fn of entry "r"_str with ret 0_optional_i32
+        if some found_r as replay_r
         di
           set selected_r to replay_r
         do
