@@ -2,6 +2,71 @@
 //
 // The keys.
 
+// A board in the history is board_values values from its number on: its cells,
+// its region and its selected q and r. in_past_bool picks past or future.
+def keep_value_fn in_past_bool slot_i32 value_i32 with from_global past future ret_void
+di
+  if in_past_bool
+  di
+    set past at slot_i32 to value_i32
+  do
+  else
+  di
+    set future at slot_i32 to value_i32
+  do
+do
+
+def kept_value_fn in_past_bool slot_i32 with from_global past future ret 0_i32
+di
+  if in_past_bool
+  di
+    val value is past at slot_i32 with ret 0_i32
+    return value
+  do
+  val value is future at slot_i32 with ret 0_i32
+  return value
+do
+
+// Keeps the present board as board number_i32 of the past or the future.
+def keep_board_fn in_past_bool number_i32 with from_global cells region selected_q selected_r ret_void
+di
+  var slot is number_i32
+  set slot to_multiply slot board_values
+  var index is 0_i32
+  while index lt all_cells
+  di
+    val value is cells at index with ret 0_i32
+    call keep_value_fn of in_past_bool slot value
+    set slot to_add slot 1_i32
+    set index to_add index 1_i32
+  do
+  call keep_value_fn of in_past_bool slot region
+  set slot to_add slot 1_i32
+  call keep_value_fn of in_past_bool slot selected_q
+  set slot to_add slot 1_i32
+  call keep_value_fn of in_past_bool slot selected_r
+do
+
+// Makes board number_i32 of the past or the future the present board.
+def restore_board_fn in_past_bool number_i32 with from_global cells region selected_q selected_r ret_void
+di
+  var slot is number_i32
+  set slot to_multiply slot board_values
+  var index is 0_i32
+  while index lt all_cells
+  di
+    val value is kept_value_fn of in_past_bool slot with ret 0_i32
+    set cells at index to value
+    set slot to_add slot 1_i32
+    set index to_add index 1_i32
+  do
+  set region to kept_value_fn of in_past_bool slot with ret 0_i32
+  set slot to_add slot 1_i32
+  set selected_q to kept_value_fn of in_past_bool slot with ret 0_i32
+  set slot to_add slot 1_i32
+  set selected_r to kept_value_fn of in_past_bool slot with ret 0_i32
+do
+
 // Handles a key as corela's handle_key does. A command that succeeds is the
 // next action, which an undo or a redo is too, and the last one ends the run.
 gfx_key_down
@@ -12,18 +77,18 @@ di
   var next_action is action
   set next_action to_add next_action 1_i32
   val shown_next is math_to_min next_action last
-  var done is false_bool
+  var command is no_command
+  var dq is 0_i32
+  var dr is 0_i32
+  // Keys do nothing while the run closes, plays, saves or loads, and only
+  // key_cycle leaves mode_none.
   if closing or playback_count gt 0_i32 or save_requested or load_requested
+  or mode eq mode_none and gfx_key not_eq key_cycle
   di
-    set done to true_bool
+    nihil
   do
-  if not done and mode eq mode_none and gfx_key not_eq key_cycle
+  else if gfx_key eq key_theme
   di
-    set done to true_bool
-  do
-  if not done and gfx_key eq key_theme
-  di
-    set done to true_bool
     if dark
     di
       set dark to false_bool
@@ -35,27 +100,20 @@ di
       info "core: action_"_str shown "_of_"_str last ": dark_theme"_str
     do
   do
-  if not done and gfx_key eq key_escape
+  else if gfx_key eq key_escape
   di
-    set done to true_bool
     set mode to mode_none
     info "core: action_"_str shown "_of_"_str last ": input_mode_none"_str
   do
-  if not done and gfx_key eq key_cycle
+  else if gfx_key eq key_cycle
   di
-    set done to true_bool
     set mode to_add mode 1_i32
     set mode to_mod mode mode_count
     val code is mode_codes at mode with ret 0_str
     info "core: action_"_str shown "_of_"_str last ": input_mode_"_str code
   do
-
-  var command is no_command
-  var dq is 0_i32
-  var dr is 0_i32
-  if not done and gfx_key eq key_run
+  else if gfx_key eq key_run
   di
-    set done to true_bool
     if mode eq mode_undo and action le last
     di
       set command to command_undo
@@ -80,7 +138,7 @@ di
       set load_requested to true_bool
     do
   do
-  if not done and mode eq mode_input and action le last
+  else if mode eq mode_input and action le last
   di
     if gfx_key eq key_start
     di
@@ -138,42 +196,10 @@ di
     do
     else
     di
-      var base is future_count
-      set base to_multiply base board_values
-      var index is 0_i32
-      while index lt all_cells
-      di
-        val value is cells at index with ret 0_i32
-        var slot is base
-        set slot to_add slot index
-        set future at slot to value
-        set index to_add index 1_i32
-      do
-      set base to_add base all_cells
-      set future at base to region
-      set base to_add base 1_i32
-      set future at base to selected_q
-      set base to_add base 1_i32
-      set future at base to selected_r
+      call keep_board_fn of false_bool future_count
       set future_count to_add future_count 1_i32
       set past_count to_subtract past_count 1_i32
-      set base to past_count
-      set base to_multiply base board_values
-      set index to 0_i32
-      while index lt all_cells
-      di
-        var slot is base
-        set slot to_add slot index
-        val value is past at slot with ret 0_i32
-        set cells at index to value
-        set index to_add index 1_i32
-      do
-      set base to_add base all_cells
-      set region to past at base with ret 0_i32
-      set base to_add base 1_i32
-      set selected_q to past at base with ret 0_i32
-      set base to_add base 1_i32
-      set selected_r to past at base with ret 0_i32
+      call restore_board_fn of true_bool past_count
       set recorded to true_bool
       set note to_join "undo_"_str past_count "_more_to_undo_"_str future_count "_to_redo"_str
     do
@@ -186,42 +212,10 @@ di
     do
     else
     di
-      var base is past_count
-      set base to_multiply base board_values
-      var index is 0_i32
-      while index lt all_cells
-      di
-        val value is cells at index with ret 0_i32
-        var slot is base
-        set slot to_add slot index
-        set past at slot to value
-        set index to_add index 1_i32
-      do
-      set base to_add base all_cells
-      set past at base to region
-      set base to_add base 1_i32
-      set past at base to selected_q
-      set base to_add base 1_i32
-      set past at base to selected_r
+      call keep_board_fn of true_bool past_count
       set past_count to_add past_count 1_i32
       set future_count to_subtract future_count 1_i32
-      set base to future_count
-      set base to_multiply base board_values
-      set index to 0_i32
-      while index lt all_cells
-      di
-        var slot is base
-        set slot to_add slot index
-        val value is future at slot with ret 0_i32
-        set cells at index to value
-        set index to_add index 1_i32
-      do
-      set base to_add base all_cells
-      set region to future at base with ret 0_i32
-      set base to_add base 1_i32
-      set selected_q to future at base with ret 0_i32
-      set base to_add base 1_i32
-      set selected_r to future at base with ret 0_i32
+      call restore_board_fn of false_bool future_count
       set recorded to true_bool
       set note to_join "redo_"_str past_count "_to_undo_"_str future_count "_more_to_redo"_str
     do
@@ -230,24 +224,7 @@ di
   di
     // The present board becomes the next one in the past, which counts only
     // if the edit succeeds.
-    var base is past_count
-    set base to_multiply base board_values
-    var index is 0_i32
-    while index lt all_cells
-    di
-      val value is cells at index with ret 0_i32
-      var slot is base
-      set slot to_add slot index
-      set past at slot to value
-      set index to_add index 1_i32
-    do
-    set base to_add base all_cells
-    set past at base to region
-    set base to_add base 1_i32
-    set past at base to selected_q
-    set base to_add base 1_i32
-    set past at base to selected_r
-
+    call keep_board_fn of true_bool past_count
     val q is selected_q
     val r is selected_r
     val here is cell_fn of region q r with ret 0_i32

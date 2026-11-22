@@ -82,56 +82,27 @@ di
           di
             if read_ok
             di
-              val format is replay_number_fn of document "format"_str with ret 0_i32
-              val count is replay_number_fn of document "count"_str with ret 0_i32
-              var valid is false_bool
-              var root is ""_str
-              xml_name document with ret 1_str as name
+              call replay_count_fn of document with ret 0_bool as valid 1_i32 as count
               di
-                set root to name
-              do
-              if root eq "replay"_str and format eq 1_i32 and count gt 0_i32 and count lt history_boards
-              di
-                set valid to true_bool
-                var index is 0_i32
-                while valid and index lt count
+                if valid
                 di
-                  xml_child document ""_str index with ret 0_bool as found_action 1_str as entry
+                  var index is 0_i32
+                  while index lt count
                   di
-                    var number is index
-                    set number to_add number 1_i32
-                    if found_action
-                    di
-                      set valid to replay_valid_action_fn of entry number with ret 0_bool
-                    do
-                    else
-                    di
-                      set valid to false_bool
-                    do
-                    if valid
+                    xml_child document ""_str index with ret 1_str as entry
                     di
                       set playback at index to entry
                     do
+                    set index to_add index 1_i32
                   do
-                  set index to_add index 1_i32
+                  set playback_count to count
+                  set mode to mode_load
+                  info "core: replay_loaded: "_str filename
                 do
-                xml_child document ""_str count with ret 0_bool as extra
+                else
                 di
-                  if extra
-                  di
-                    set valid to false_bool
-                  do
+                  info "core: replay_not_loaded: invalid replay "_str filename
                 do
-              do
-              if valid
-              di
-                set playback_count to count
-                set mode to mode_load
-                info "core: replay_loaded: "_str filename
-              do
-              else
-              di
-                info "core: replay_not_loaded: invalid replay "_str filename
               do
             do
             else
@@ -160,16 +131,30 @@ di
       else if playback_index lt playback_count
       di
         val entry is playback at playback_index with ret 0_str
-        set region to replay_number_fn of entry "region"_str with ret 0_i32
-        set selected_q to replay_number_fn of entry "q"_str with ret 0_i32
-        set selected_r to replay_number_fn of entry "r"_str with ret 0_i32
-        val digits is replay_cells_fn of entry with ret 0_str
-        var index is 0_i32
-        while index lt all_cells
+        // replay_count_fn found each value, so only the value is taken.
+        call replay_number_fn of entry "region"_str with ret 1_i32 as replay_region
         di
-          val digit is replay_digit_fn of digits index with ret 0_i32
-          set cells at index to digit
-          set index to_add index 1_i32
+          set region to replay_region
+        do
+        call replay_number_fn of entry "q"_str with ret 1_i32 as replay_q
+        di
+          set selected_q to replay_q
+        do
+        call replay_number_fn of entry "r"_str with ret 1_i32 as replay_r
+        di
+          set selected_r to replay_r
+        do
+        xml_attribute entry "cells"_str with ret 1_str as digits
+        di
+          var index is 0_i32
+          while index lt all_cells
+          di
+            str_digit digits index with ret 1_i32 as digit
+            di
+              set cells at index to digit
+            do
+            set index to_add index 1_i32
+          do
         do
         set playback_index to_add playback_index 1_i32
         set action to playback_index

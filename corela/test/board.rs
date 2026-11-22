@@ -400,3 +400,176 @@ fn malformed_replay_leaves_the_board_intact() {
     let last = script.frames.last().unwrap();
     assert_ne!(icons(last).len(), 0);
 }
+
+// The attribute name of a replay document as it starts and ends.
+#[cfg(test)]
+fn attribute_span(document: &str, name: &str) -> (usize, usize) {
+    let opening = format!(" {name}='");
+    let start = document.find(&opening).unwrap();
+    let value = start + opening.len();
+    (start, value + document[value..].find('\'').unwrap() + 1)
+}
+
+#[cfg(test)]
+fn without_attribute(document: &str, name: &str) -> String {
+    let (start, end) = attribute_span(document, name);
+    format!("{}{}", &document[..start], &document[end..])
+}
+
+#[cfg(test)]
+fn with_attribute(document: &str, name: &str, value: &str) -> String {
+    let (start, end) = attribute_span(document, name);
+    format!(
+        "{} {name}='{value}'{}",
+        &document[..start],
+        &document[end..]
+    )
+}
+
+// A replay of one action, an arrow placed at 0 0, which loads as it is.
+#[cfg(test)]
+fn recorded_replay() -> String {
+    let cycle = "SAPP_KEYCODE_I";
+    let mut recorded = TestIo::default();
+    let _ = run_with_io(
+        &[
+            &[cycle, "SAPP_KEYCODE_1"],
+            &[cycle, cycle, cycle, "SAPP_KEYCODE_R"],
+        ],
+        true,
+        &mut recorded,
+    );
+    let replay = recorded.files.get("replay_1000.xml").unwrap().clone();
+    assert!(replay_info(&replay).contains("core: replay_loaded: replay_1000.xml"));
+    replay
+}
+
+// The info of a run that loads the replay and plays its first action.
+#[cfg(test)]
+fn replay_info(replay: &str) -> String {
+    let cycle = "SAPP_KEYCODE_I";
+    let mut io = TestIo::default();
+    io.files
+        .insert("replay_1000.xml".to_owned(), replay.to_owned());
+    let (_, script) = run_with_io(
+        &[
+            &[cycle, cycle, cycle, cycle, cycle, "SAPP_KEYCODE_R"],
+            &[],
+            &[],
+        ],
+        true,
+        &mut io,
+    );
+    script.info
+}
+
+#[cfg(test)]
+fn is_rejected(info: &str) -> bool {
+    info.contains("core: replay_not_loaded: invalid replay replay_1000.xml")
+}
+
+// A missing attribute must not read as a value, as 0 is a valid region, q, r,
+// dq, dr, undo and redo.
+#[test]
+fn replay_without_an_attribute_is_not_loaded() {
+    let replay = recorded_replay();
+    for name in [
+        "format", "count", "number", "command", "dq", "dr", "region", "q", "r", "undo", "redo",
+        "note", "cells",
+    ] {
+        let info = replay_info(&without_attribute(&replay, name));
+        assert!(is_rejected(&info), "without {name}: {info}");
+    }
+}
+
+#[test]
+fn replay_with_a_bad_value_is_not_loaded() {
+    let replay = recorded_replay();
+    // Two start nodes, at 0 0 and 0 1.
+    let mut cells = "0".repeat(162);
+    cells.replace_range(40..42, "99");
+    for (name, value) in [
+        ("format", "2"),
+        ("count", "0"),
+        ("count", "2"),
+        ("count", "64"),
+        ("number", "2"),
+        ("command", "0"),
+        ("command", "7"),
+        ("command", "one"),
+        ("dq", "1"),
+        ("dr", "-1"),
+        ("region", "2"),
+        ("q", "5"),
+        // Out of i32 once negated, as in_bounds_fn would do.
+        ("q", "-2147483648"),
+        ("r", "-5"),
+        ("undo", "2"),
+        ("redo", "-1"),
+        ("cells", "0"),
+        ("cells", &cells),
+    ] {
+        let info = replay_info(&with_attribute(&replay, name, value));
+        assert!(is_rejected(&info), "{name}='{value}': {info}");
+    }
+}
+
+// Each undo and redo restores the cells, the region and the selection.
+#[test]
+fn undo_and_redo_restore_the_board() {
+    let cycle = "SAPP_KEYCODE_I";
+    let north = "SAPP_KEYCODE_W";
+    let run_key = "SAPP_KEYCODE_R";
+    let (_, script) = run(
+        &[
+            &[cycle],
+            &[north],
+            &[north],
+            &[north],
+            &[north],
+            &[north],
+            &["SAPP_KEYCODE_1"],
+            &[cycle],
+            &[run_key],
+            &[run_key],
+            &[cycle],
+            &[run_key],
+            &[run_key],
+        ],
+        true,
+    );
+    assert!(
+        script.info.ends_with(
+            "core: action_6_of_24: entered_north_region\n\
+             core: action_7_of_24: placed_arrow_at_0_4\n\
+             core: action_7_of_24: input_mode_undo\n\
+             core: action_8_of_24: undo_5_more_to_undo_1_to_redo\n\
+             core: action_9_of_24: undo_4_more_to_undo_2_to_redo\n\
+             core: action_9_of_24: input_mode_redo\n\
+             core: action_10_of_24: redo_5_to_undo_1_more_to_redo\n\
+             core: action_11_of_24: redo_6_to_undo_0_more_to_redo\n"
+        ),
+        "{}",
+        script.info
+    );
+    let undone = &script.frames[10];
+    assert_eq!(texts(undone, 0xCD_D6F4)[0], "Center");
+    let [selected] = hexes(undone, 0xFA_B387)[..] else {
+        panic!("one selected tile");
+    };
+    assert!(
+        near(selected, (576.0, 324.0 - 4.0 * 32.0 * 1.732_050_8)),
+        "{selected:?}"
+    );
+    assert_eq!(icons(undone).len(), 0);
+    let redone = script.frames.last().unwrap();
+    assert_eq!(texts(redone, 0xCD_D6F4)[0], "North");
+    let [redone_selected] = hexes(redone, 0xFA_B387)[..] else {
+        panic!("one selected tile");
+    };
+    let arrows = icons(redone);
+    let [(x, y, 0, _, _)] = arrows[..] else {
+        panic!("one arrow, not {arrows:?}");
+    };
+    assert!(near((x, y), redone_selected), "{arrows:?}");
+}

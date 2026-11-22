@@ -3,7 +3,8 @@
 
 pub const replay_interval_frames is 30_i32
 
-pub def replay_number_fn document_str field_str ret 0_i32
+// The number of an attribute, if it has one, as Rust's Option<i32>.
+pub def replay_number_fn document_str field_str ret 0_bool 1_i32
 di
   xml_attribute document_str field_str with ret 0_bool as found 1_str as text
   di
@@ -13,34 +14,29 @@ di
       di
         if parsed
         di
-          return number
+          return true_bool number
         do
       do
     do
   do
-  return -2147483648_i32
+  return false_bool 0_i32
 do
 
-pub def replay_cells_fn document_str ret 0_str
+// Whether an attribute has a number from minimum_i32 to maximum_i32.
+pub def replay_in_range_fn document_str field_str minimum_i32 maximum_i32 ret 0_bool
 di
-  xml_attribute document_str "cells"_str with ret 1_str as text
+  call replay_number_fn of document_str field_str with ret 0_bool as found 1_i32 as number
   di
-    return text
-  do
-do
-
-pub def replay_digit_fn text_str index_i32 ret 0_i32
-di
-  str_digit text_str index_i32 with ret 0_bool as found 1_i32 as digit
-  di
-    if found
+    if found and number ge minimum_i32 and number le maximum_i32
     di
-      return digit
+      return true_bool
     do
   do
-  return -1_i32
+  return false_bool
 do
 
+// Whether an action is the one numbered expected_i32, with a command and a
+// board that the keys can make.
 pub def replay_valid_action_fn document_str expected_i32 ret 0_bool
 di
   xml_name document_str with ret 1_str as name
@@ -52,35 +48,46 @@ di
   do
   var minimum is 0_i32
   set minimum to_subtract board_radius
-  val number is replay_number_fn of document_str "number"_str with ret 0_i32
-  val replay_region is replay_number_fn of document_str "region"_str with ret 0_i32
-  val q is replay_number_fn of document_str "q"_str with ret 0_i32
-  val r is replay_number_fn of document_str "r"_str with ret 0_i32
-  val command is replay_number_fn of document_str "command"_str with ret 0_i32
-  if number not_eq expected_i32 or replay_region lt center_region or replay_region gt north_region
-    or q lt minimum or q gt board_radius or r lt minimum or r gt board_radius
-    or command lt command_undo or command gt command_remove
+  val valid_number is replay_in_range_fn of document_str "number"_str expected_i32 expected_i32 with ret 0_bool
+  val valid_command is replay_in_range_fn of document_str "command"_str command_undo command_remove with ret 0_bool
+  val valid_dq is replay_in_range_fn of document_str "dq"_str -1_i32 1_i32 with ret 0_bool
+  val valid_dr is replay_in_range_fn of document_str "dr"_str -1_i32 1_i32 with ret 0_bool
+  val valid_region is replay_in_range_fn of document_str "region"_str center_region north_region with ret 0_bool
+  val valid_q is replay_in_range_fn of document_str "q"_str minimum board_radius with ret 0_bool
+  val valid_r is replay_in_range_fn of document_str "r"_str minimum board_radius with ret 0_bool
+  val valid_undo is replay_in_range_fn of document_str "undo"_str 0_i32 expected_i32 with ret 0_bool
+  val valid_redo is replay_in_range_fn of document_str "redo"_str 0_i32 expected_i32 with ret 0_bool
+  if not valid_number or not valid_command or not valid_dq or not valid_dr or not valid_region
+    or not valid_q or not valid_r or not valid_undo or not valid_redo
   di
     return false_bool
   do
-  val dq is replay_number_fn of document_str "dq"_str with ret 0_i32
-  val dr is replay_number_fn of document_str "dr"_str with ret 0_i32
-  val undo is replay_number_fn of document_str "undo"_str with ret 0_i32
-  val redo is replay_number_fn of document_str "redo"_str with ret 0_i32
-  if undo lt 0_i32 or undo gt number or redo lt 0_i32 or redo gt number
+  // Each number is there, so only its value is taken.
+  call replay_number_fn of document_str "command"_str with ret 1_i32 as command
   di
-    return false_bool
-  do
-  if command eq command_move
-  di
-    if dq lt -1_i32 or dq gt 1_i32 or dr lt -1_i32 or dr gt 1_i32 or dq eq dr
+    call replay_number_fn of document_str "dq"_str with ret 1_i32 as dq
     di
-      return false_bool
+      call replay_number_fn of document_str "dr"_str with ret 1_i32 as dr
+      di
+        if command eq command_move and dq eq dr
+        or command not_eq command_move and dq not_eq 0_i32
+        or command not_eq command_move and dr not_eq 0_i32
+        di
+          return false_bool
+        do
+      do
     do
   do
-  else if dq not_eq 0_i32 or dr not_eq 0_i32
+  call replay_number_fn of document_str "q"_str with ret 1_i32 as q
   di
-    return false_bool
+    call replay_number_fn of document_str "r"_str with ret 1_i32 as r
+    di
+      val valid_selection is in_bounds_fn of q r with ret 0_bool
+      if not valid_selection
+      di
+        return false_bool
+      do
+    do
   do
   xml_attribute document_str "note"_str with ret 0_bool as has_note
   di
@@ -89,50 +96,93 @@ di
       return false_bool
     do
   do
-  val valid_selection is in_bounds_fn of q r with ret 0_bool
-  if not valid_selection
+  xml_attribute document_str "cells"_str with ret 0_bool as has_cells 1_str as digits
   di
-    return false_bool
-  do
-  val digits is replay_cells_fn of document_str with ret 0_str
-  var index is 0_i32
-  var has_start is false_bool
-  while index lt all_cells
-  di
-    val digit is replay_digit_fn of digits index with ret 0_i32
-    if digit lt no_node or digit gt start_node
+    str_len digits with ret 1_i32 as length
     di
-      return false_bool
-    do
-    if digit not_eq no_node
-    di
-      var column is index
-      set column to_mod column board_cells
-      set column to_divide column board_side
-      set column to_subtract column board_radius
-      var row_index is index
-      set row_index to_mod row_index board_side
-      set row_index to_subtract row_index board_radius
-      val inside is in_bounds_fn of column row_index with ret 0_bool
-      if not inside or digit eq start_node and has_start
+      if not has_cells or length not_eq all_cells
       di
         return false_bool
       do
-      if digit eq start_node
+    do
+    var index is 0_i32
+    var has_start is false_bool
+    while index lt all_cells
+    di
+      str_digit digits index with ret 0_bool as is_digit 1_i32 as digit
       di
-        set has_start to true_bool
+        if not is_digit or digit gt start_node
+        di
+          return false_bool
+        do
+        if digit not_eq no_node
+        di
+          var column is index
+          set column to_mod column board_cells
+          set column to_divide column board_side
+          set column to_subtract column board_radius
+          var row_index is index
+          set row_index to_mod row_index board_side
+          set row_index to_subtract row_index board_radius
+          val inside is in_bounds_fn of column row_index with ret 0_bool
+          if not inside or digit eq start_node and has_start
+          di
+            return false_bool
+          do
+          if digit eq start_node
+          di
+            set has_start to true_bool
+          do
+        do
+      do
+      set index to_add index 1_i32
+    do
+  do
+  return true_bool
+do
+
+// The number of actions of a replay of format 1, if each is valid and
+// numbered from 1, and there are fewer than history_boards.
+pub def replay_count_fn document_str ret 0_bool 1_i32
+di
+  xml_name document_str with ret 1_str as name
+  di
+    if name not_eq "replay"_str
+    di
+      return false_bool 0_i32
+    do
+  do
+  val valid_format is replay_in_range_fn of document_str "format"_str 1_i32 1_i32 with ret 0_bool
+  call replay_number_fn of document_str "count"_str with ret 0_bool as has_count 1_i32 as count
+  di
+    if not valid_format or not has_count or count lt 1_i32 or count ge history_boards
+    di
+      return false_bool 0_i32
+    do
+    var index is 0_i32
+    while index lt count
+    di
+      xml_child document_str ""_str index with ret 0_bool as found 1_str as entry
+      di
+        var number is index
+        set number to_add number 1_i32
+        val valid is replay_valid_action_fn of entry number with ret 0_bool
+        if not found or not valid
+        di
+          return false_bool 0_i32
+        do
+      do
+      set index to_add index 1_i32
+    do
+    xml_child document_str ""_str count with ret 0_bool as extra
+    di
+      if extra
+      di
+        return false_bool 0_i32
       do
     do
-    set index to_add index 1_i32
+    return true_bool count
   do
-  str_len digits with ret 1_i32 as length
-  di
-    if length eq all_cells
-    di
-      return true_bool
-    do
-  do
-  return false_bool
 do
 
 pub def replay_save_fn body_str count_i32 ret 0_bool
