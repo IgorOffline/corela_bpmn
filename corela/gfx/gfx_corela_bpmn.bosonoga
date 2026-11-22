@@ -45,8 +45,8 @@ di
     return exit_failure
   do
   var idle_close_frames is global_idle_close_ms
-  set idle_close_frames to_multiply idle_close_frames frames_per_second
-  set idle_close_frames to_divide idle_close_frames 1000_u32
+  set idle_close_frames to_multiply frames_per_second
+  set idle_close_frames to_divide 1000_u32
   var waited_frames is 0_u32
   var playback_index is 0_i32
   var playback_delay is 0_i32
@@ -56,7 +56,7 @@ di
     if save_requested
     di
       var count is action
-      set count to_subtract count 1_i32
+      set count to_subtract 1_i32
       val saved is replay_save_fn of replay_body count with ret 0_bool
       set save_requested to false_bool
       if action gt global_replay_last_action
@@ -92,7 +92,7 @@ di
                   di
                     set playback at index to entry
                   do
-                  set index to_add index 1_i32
+                  set index to_add 1_i32
                 do
                 set playback_count to count
                 set mode to mode_load
@@ -124,7 +124,7 @@ di
     di
       if playback_delay gt 0_i32
       di
-        set playback_delay to_subtract playback_delay 1_i32
+        set playback_delay to_subtract 1_i32
       do
       else if playback_index lt playback_count
       di
@@ -154,10 +154,10 @@ di
             di
               set cells at index to digit
             do
-            set index to_add index 1_i32
+            set index to_add 1_i32
           do
         do
-        set playback_index to_add playback_index 1_i32
+        set playback_index to_add 1_i32
         set action to playback_index
         var replay_note is ""_str
         xml_attribute entry "note"_str with ret 1_str as note
@@ -175,7 +175,7 @@ di
     do
     if not any_key_pressed and idle_close_frames gt 0_u32
     di
-      set waited_frames to_add waited_frames 1_u32
+      set waited_frames to_add 1_u32
       if waited_frames ge idle_close_frames
       di
         set closing to true_bool

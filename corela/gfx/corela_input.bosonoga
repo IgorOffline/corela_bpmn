@@ -31,19 +31,19 @@ do
 def keep_board_fn in_past_bool number_i32 with from_global cells region selected_q selected_r ret_void
 di
   var slot is number_i32
-  set slot to_multiply slot board_values
+  set slot to_multiply board_values
   var index is 0_i32
   while index lt all_cells
   di
     val value is cells at index with ret 0_i32
     call keep_value_fn of in_past_bool slot value
-    set slot to_add slot 1_i32
-    set index to_add index 1_i32
+    set slot to_add 1_i32
+    set index to_add 1_i32
   do
   call keep_value_fn of in_past_bool slot region
-  set slot to_add slot 1_i32
+  set slot to_add 1_i32
   call keep_value_fn of in_past_bool slot selected_q
-  set slot to_add slot 1_i32
+  set slot to_add 1_i32
   call keep_value_fn of in_past_bool slot selected_r
 do
 
@@ -51,19 +51,19 @@ do
 def restore_board_fn in_past_bool number_i32 with from_global cells region selected_q selected_r ret_void
 di
   var slot is number_i32
-  set slot to_multiply slot board_values
+  set slot to_multiply board_values
   var index is 0_i32
   while index lt all_cells
   di
     val value is kept_value_fn of in_past_bool slot with ret 0_i32
     set cells at index to value
-    set slot to_add slot 1_i32
-    set index to_add index 1_i32
+    set slot to_add 1_i32
+    set index to_add 1_i32
   do
   set region to kept_value_fn of in_past_bool slot with ret 0_i32
-  set slot to_add slot 1_i32
+  set slot to_add 1_i32
   set selected_q to kept_value_fn of in_past_bool slot with ret 0_i32
-  set slot to_add slot 1_i32
+  set slot to_add 1_i32
   set selected_r to kept_value_fn of in_past_bool slot with ret 0_i32
 do
 
@@ -75,7 +75,7 @@ di
   val last is global_replay_last_action
   val shown is math_to_min action last
   var next_action is action
-  set next_action to_add next_action 1_i32
+  set next_action to_add 1_i32
   val shown_next is math_to_min next_action last
   var command is nihil_i32
   var dq is 0_i32
@@ -107,8 +107,8 @@ di
   do
   else if gfx_key eq key_cycle
   di
-    set mode to_add mode 1_i32
-    set mode to_mod mode mode_count
+    set mode to_add 1_i32
+    set mode to_mod mode_count
     val code is mode_codes at mode with ret 0_str
     info "core: action_"_str shown "_of_"_str last ": input_mode_"_str code
   do
@@ -199,8 +199,8 @@ di
       else
       di
         call keep_board_fn of false_bool future_count
-        set future_count to_add future_count 1_i32
-        set past_count to_subtract past_count 1_i32
+        set future_count to_add 1_i32
+        set past_count to_subtract 1_i32
         call restore_board_fn of true_bool past_count
         var text is ""_str
         set text to_join "undo_"_str past_count "_more_to_undo_"_str future_count "_to_redo"_str
@@ -216,8 +216,8 @@ di
       else
       di
         call keep_board_fn of true_bool past_count
-        set past_count to_add past_count 1_i32
-        set future_count to_subtract future_count 1_i32
+        set past_count to_add 1_i32
+        set future_count to_subtract 1_i32
         call restore_board_fn of false_bool future_count
         var text is ""_str
         set text to_join "redo_"_str past_count "_to_undo_"_str future_count "_more_to_redo"_str
@@ -250,9 +250,9 @@ di
         else
         di
           var to_q is q
-          set to_q to_add to_q dq
+          set to_q to_add dq
           var to_r is r
-          set to_r to_add to_r dr
+          set to_r to_add dr
           val inside is in_bounds_fn of to_q to_r with ret 0_bool
           if inside
           di
@@ -279,7 +279,7 @@ di
           di
             set has_start to true_bool
           do
-          set cell to_add cell 1_i32
+          set cell to_add 1_i32
         do
         if node not_eq no_node
         di
@@ -314,9 +314,9 @@ di
         di
           // node is its direction and 1, so it is also the next direction.
           var turned is node
-          set turned to_mod node arrow_directions
+          set turned to_mod arrow_directions
           var stored is turned
-          set stored to_add turned 1_i32
+          set stored to_add 1_i32
           set cells at here to stored
           var text is ""_str
           set text to_join "turned_arrow_at_"_str q "_"_str r "_to_"_str turned
@@ -339,7 +339,7 @@ di
       do
       if some note
       di
-        set past_count to_add past_count 1_i32
+        set past_count to_add 1_i32
         set future_count to 0_i32
       do
     do
@@ -353,7 +353,7 @@ di
       di
         val cell_value is cells at cell_index with ret 0_i32
         set digits to_join digits cell_value
-        set cell_index to_add cell_index 1_i32
+        set cell_index to_add 1_i32
       do
       xml_escape noted with ret 1_str as escaped_note
       di

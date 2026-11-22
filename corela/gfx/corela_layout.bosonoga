@@ -67,18 +67,18 @@ do
 pub def hex_x_fn q_i32 ret 0_f32
 di
   var x is to_f32 q_i32
-  set x to_multiply x hex_size column_spacing
-  set x to_add x origin_x
+  set x to_multiply hex_size column_spacing
+  set x to_add origin_x
   return x
 do
 
 pub def hex_y_fn q_i32 r_i32 ret 0_f32
 di
   var half_column is to_f32 q_i32
-  set half_column to_divide half_column 2d0_f32
+  set half_column to_divide 2d0_f32
   var y is to_f32 r_i32
-  set y to_add y half_column
-  set y to_multiply y hex_size row_spacing
-  set y to_add y origin_y
+  set y to_add half_column
+  set y to_multiply hex_size row_spacing
+  set y to_add origin_y
   return y
 do

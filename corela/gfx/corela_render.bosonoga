@@ -40,7 +40,7 @@ di
   val shown_action is math_to_min action last_action
   gfx_draw_text left baseline text_x header_baseline font_label text_size label_text "Action "_str shown_action " / "_str last_action
   var radius is hex_size
-  set radius to_subtract radius hex_tile_inset
+  set radius to_subtract hex_tile_inset
   // A board of radius 4 has the columns q = -4 to 4, and so the rows.
   var q is 0_i32
   set q to_subtract board_radius
@@ -73,17 +73,17 @@ di
           // The label is the column letter and the row number, counted from 1
           // at the bottom of the column, as corela's Board::label.
           var column is q
-          set column to_add column board_radius
+          set column to_add board_radius
           val letter is column_letters at column with ret 0_str
           val letter_dips is column_dips at column with ret 0_bool
           var bottom is board_radius
-          set bottom to_subtract bottom q
+          set bottom to_subtract q
           set bottom math_to_min bottom board_radius
           var number is bottom
-          set number to_subtract number r
-          set number to_add number 1_i32
+          set number to_subtract r
+          set number to_add 1_i32
           var digit is number
-          set digit to_subtract digit 1_i32
+          set digit to_subtract 1_i32
           val digit_dips is row_dips at digit with ret 0_bool
           var height is label_height
           if letter_dips or digit_dips
@@ -91,13 +91,13 @@ di
             set height to label_dipping_height
           do
           var left is x
-          set left to_subtract left label_half_width
+          set left to_subtract label_half_width
           set left math_to_round left
           var half_height is height
-          set half_height to_divide half_height 2d0_f32
+          set half_height to_divide 2d0_f32
           var label_baseline is y
-          set label_baseline to_subtract label_baseline half_height
-          set label_baseline to_add label_baseline label_ascent
+          set label_baseline to_subtract half_height
+          set label_baseline to_add label_ascent
           set label_baseline math_to_round label_baseline
           var text is faded_label_text
           if active
@@ -107,12 +107,13 @@ di
           gfx_draw_text left baseline left label_baseline font_label text_size text letter number
         do
       do
-      set r to_add r 1_i32
+      set r to_add 1_i32
     do
-    set q to_add q 1_i32
+    set q to_add 1_i32
   do
   // Nodes are drawn over the tiles, as in corela, and an arrow on the selected
   // tile in the color of the tile under it.
+  set q to 0_i32
   set q to_subtract board_radius
   while q le board_radius
   di
@@ -135,8 +136,8 @@ di
         else if node not_eq no_node
         di
           var angle is to_f32 node
-          set angle to_subtract angle 1d0_f32
-          set angle to_multiply angle arrow_step
+          set angle to_subtract 1d0_f32
+          set angle to_multiply arrow_step
           var color is chevron
           if q eq selected_q and r eq selected_r
           di
@@ -145,8 +146,8 @@ di
           gfx_draw_icon x y icon_chevron angle color
         do
       do
-      set r to_add r 1_i32
+      set r to_add 1_i32
     do
-    set q to_add q 1_i32
+    set q to_add 1_i32
   do
 do

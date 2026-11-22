@@ -31,19 +31,19 @@ do
 pub def cell_fn region_i32 q_i32 r_i32 ret 0_i32
 di
   var cell is q_i32
-  set cell to_add cell board_radius
-  set cell to_multiply cell board_side
-  set cell to_add cell r_i32 board_radius
+  set cell to_add board_radius
+  set cell to_multiply board_side
+  set cell to_add r_i32 board_radius
   var region_start is region_i32
-  set region_start to_multiply region_start board_cells
-  set cell to_add cell region_start
+  set region_start to_multiply board_cells
+  set cell to_add region_start
   return cell
 do
 
 pub def in_bounds_fn q_i32 r_i32 ret 0_bool
 di
   var s is 0_i32
-  set s to_subtract s q_i32 r_i32
+  set s to_subtract q_i32 r_i32
   var steps is math_to_abs q_i32
   var r_steps is math_to_abs r_i32
   var s_steps is math_to_abs s

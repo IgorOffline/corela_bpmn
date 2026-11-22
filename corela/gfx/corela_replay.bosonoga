@@ -120,12 +120,12 @@ di
         if digit not_eq no_node
         di
           var column is index
-          set column to_mod column board_cells
-          set column to_divide column board_side
-          set column to_subtract column board_radius
+          set column to_mod board_cells
+          set column to_divide board_side
+          set column to_subtract board_radius
           var row_index is index
-          set row_index to_mod row_index board_side
-          set row_index to_subtract row_index board_radius
+          set row_index to_mod board_side
+          set row_index to_subtract board_radius
           val inside is in_bounds_fn of column row_index with ret 0_bool
           if not inside or digit eq start_node and has_start
           di
@@ -137,7 +137,7 @@ di
           do
         do
       do
-      set index to_add index 1_i32
+      set index to_add 1_i32
     do
   do
   return true_bool
@@ -156,7 +156,7 @@ di
   do
   val format is replay_in_range_fn of document_str "format"_str 1_i32 1_i32 with ret 0_optional_i32
   var most is history_boards
-  set most to_subtract most 1_i32
+  set most to_subtract 1_i32
   val found_count is replay_in_range_fn of document_str "count"_str 1_i32 most with ret 0_optional_i32
   if not some format
   di
@@ -170,14 +170,14 @@ di
       xml_child document_str ""_str index with ret 0_bool as found 1_str as entry
       di
         var number is index
-        set number to_add number 1_i32
+        set number to_add 1_i32
         val valid is replay_valid_action_fn of entry number with ret 0_bool
         if not found or not valid
         di
           return nihil_i32
         do
       do
-      set index to_add index 1_i32
+      set index to_add 1_i32
     do
     xml_child document_str ""_str count with ret 0_bool as extra
     di
@@ -213,7 +213,7 @@ di
         return false_bool
       do
     do
-    set sequence to_add sequence 1_i32
+    set sequence to_add 1_i32
   do
   info "core: replay_not_saved: all replay names are taken"_str
   return false_bool
