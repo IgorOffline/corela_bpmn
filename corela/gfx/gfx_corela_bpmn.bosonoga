@@ -30,6 +30,10 @@ di
   var load_requested is false_bool
   var playback is array 0_str with_len_col history_boards
   var playback_count is 0_i32
+  var fps_frames is 0_i32
+  var fps_seconds is 0d0_f32
+  var fps_shown is nihil_i32
+  var heap_tenths is nihil_u64
 do
 
 mod "corela_input.bosonoga"_str

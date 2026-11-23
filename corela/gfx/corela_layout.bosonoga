@@ -16,6 +16,8 @@ pub const text_size is 27d6_f32
 pub const header_baseline is 30d0_f32
 pub const mode_baseline is 604d0_f32
 pub const footer_baseline is 627d0_f32
+pub const corner_x is 1136d0_f32
+pub const heap_baseline is 53d0_f32
 pub const label_half_width is 12d28_f32
 pub const label_ascent is 14d0_f32
 pub const label_height is 14d0_f32
