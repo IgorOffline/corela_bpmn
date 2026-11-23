@@ -39,6 +39,51 @@ di
   do
   val shown_action is math_to_min action last_action
   gfx_draw_text left baseline text_x header_baseline font_label text_size label_text "Action "_str shown_action " / "_str last_action
+  set fps_frames to_add 1_i32
+  set fps_seconds to_add gfx_delta_time
+  var sample_heap is false_bool
+  if not some heap_tenths
+  di
+    set sample_heap to true_bool
+  do
+  if fps_seconds ge 1d0_f32
+  di
+    var fps is to_f32 fps_frames
+    set fps to_divide fps_seconds
+    set fps math_to_round fps
+    val whole_fps is to_i32 fps
+    set fps_shown to_optional_i32 whole_fps
+    set fps_frames to 0_i32
+    set fps_seconds to 0d0_f32
+    set sample_heap to true_bool
+  do
+  // Heap: what the interpreter holds, in MiB rounded to tenths. The ≈ is
+  // because allocator overhead, the graphics library, the GPU and the thread
+  // stacks are left out.
+  if sample_heap
+  di
+    var tenths is gfx_heap_bytes
+    set tenths to_multiply 10_u64
+    set tenths to_add 524288_u64
+    set tenths to_divide 1048576_u64
+    set heap_tenths to_optional_u64 tenths
+  do
+  if some fps_shown as fps
+  di
+    gfx_draw_text right baseline corner_x header_baseline font_label text_size label_text "FPS: "_str fps
+  do
+  else
+  di
+    gfx_draw_text right baseline corner_x header_baseline font_label text_size label_text "FPS: --"_str
+  do
+  if some heap_tenths as tenths
+  di
+    var whole is tenths
+    set whole to_divide 10_u64
+    var tenth is tenths
+    set tenth to_mod 10_u64
+    gfx_draw_text right baseline corner_x heap_baseline font_label text_size label_text "Heap: ≈"_str whole "."_str tenth " MiB"_str
+  do
   var radius is hex_size
   set radius to_subtract hex_tile_inset
   // A board of radius 4 has the columns q = -4 to 4, and so the rows.
